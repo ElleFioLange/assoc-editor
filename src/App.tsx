@@ -1,6 +1,7 @@
 import React from 'react';
 import { Layout, Menu, Breadcrumb } from "antd";
 import { UserOutlined, LaptopOutlined, NotificationOutlined } from "@ant-design/icons";
+import GraphView from "./Graph";
 import "antd/dist/antd.css";
 
 const { SubMenu } = Menu;
@@ -59,7 +60,7 @@ function App() {
             minHeight: 280,
           }}
         >
-          Content
+          <GraphView />
         </Content>
       </Layout>
     </Layout>
