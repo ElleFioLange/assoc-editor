@@ -1,6 +1,6 @@
 declare module "react-graph-vis";
 declare module "uuid";
 
-type NodeData = { id: number; label: string; color: string }
+type NodeData = { id: string; name: string; val: number }
 
-type EdgeData = { from: number; to: number; }
+type EdgeData = { source: string; target: string; }

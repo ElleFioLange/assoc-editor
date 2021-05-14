@@ -1,12 +1,52 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { Layout, Menu } from "antd";
 import { PlusSquareOutlined } from "@ant-design/icons";
-import GraphView from "./Graph";
+import { ForceGraph3D } from "react-force-graph";
+import SpriteText from "three-spritetext";
 import "antd/dist/antd.css";
 import "./App.css";
 
-const { SubMenu } = Menu;
+// const { SubMenu } = Menu;
 const { Content, Sider } = Layout;
+
+const testData = {
+  nodes: [
+    {
+      id: "asdfljae",
+      name: "node1",
+      val: 494,
+    },
+    {
+      id: "asddjalfeafljae",
+      name: "node2",
+      val: 494,
+    },
+    {
+      id: "feajiljba",
+      name: "node3",
+      val: 494,
+    },
+    {
+      id: "makvlaoiwe",
+      name: "node4",
+      val: 494,
+    },
+  ],
+  links: [
+    {
+      source: "asdfljae",
+      target: "feajiljba"
+    },
+    {
+      source: "feajiljba",
+      target: "asdfljae"
+    },
+    {
+      source: "makvlaoiwe",
+      target: "asddjalfeafljae"
+    },
+  ]
+}
 
 function App(): JSX.Element {
   const [siderCollapsed, setSiderCollapsed] = useState(false);
@@ -22,31 +62,20 @@ function App(): JSX.Element {
       </Sider>
       <Layout className="site-layout">
         <Content style={{ height: "100vh", }}>
-          <GraphView />
+          <ForceGraph3D
+            backgroundColor="white"
+            graphData={testData}
+            nodeThreeObject={(node: NodeData) => {
+              const sprite = new SpriteText(node.id);
+              sprite.color = "green";
+              sprite.textHeight = 8;
+              return sprite;
+            }}
+          />
         </Content>
       </Layout>
     </Layout>
   );
-}
-
-import Graph from "react-graph-vis";
-// import React, { useState } from "react";
-import ReactDOM from "react-dom";
-
-const options = {
-  layout: {
-    hierarchical: false
-  },
-  edges: {
-    color: "#000000"
-  }
-};
-
-function randomColor() {
-  const red = Math.floor(Math.random() * 256).toString(16).padStart(2, '0');
-  const green = Math.floor(Math.random() * 256).toString(16).padStart(2, '0');
-  const blue = Math.floor(Math.random() * 256).toString(16).padStart(2, '0');
-  return `#${red}${green}${blue}`;
 }
 
 export default App;
