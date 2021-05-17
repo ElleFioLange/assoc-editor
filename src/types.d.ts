@@ -58,37 +58,38 @@ type LocationData = {
 
 type ImageFormData = {
   type: "image";
-  file: import("antd/lib/upload/interface").UploadFile;
+  path: string;
 };
 
 type VideoFormData = {
   type: "video";
-  poster: import("antd/lib/upload/interface").UploadFile;
-  video: import("antd/lib/upload/interface").UploadFile;
+  posterPath: string;
+  videoPath: string;
 };
 
-type MapFormData = {
-  type: "map";
-  lat: number;
-  lon: number;
-  viewDelta: number;
-  title: string;
-  description: string;
-};
-
-type ContentFormData = ImageFormData | VideoFormData | MapFormData;
+type ContentFormData = ImageFormData | VideoFormData | MapInfo;
 
 type ConnectionFormData = {
   isSource: boolean;
-  id: string;
+  partnerId: string;
+  connectionId: string;
+  key: string;
 };
 
 type ItemFormData = {
   name: string;
+  age: string;
+  // description: string;
+  // content: ContentFormData[];
+  // connections: ConnectionFormData[];
+  // link: string;
+};
+
+type LocationFormData = {
+  id: string;
+  name: string;
   description: string;
-  content: ContentFormData[];
-  connections: ConnectionFormData[];
-  link: string;
+  items: string[];
 };
 
 type TNode = {

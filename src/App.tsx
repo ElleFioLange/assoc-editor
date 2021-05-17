@@ -7,7 +7,8 @@ import {
   PlusOutlined,
   MinusCircleOutlined,
 } from "@ant-design/icons";
-import { ItemEditor, LocationEditor} from "./Editors";
+import { v4 as uuid } from "uuid";
+import { ItemEditor, LocationEditor, NewLocation } from "./Editors";
 import { ForceGraph3D } from "react-force-graph";
 import SpriteText from "three-spritetext";
 import useWindowDims from "./useWindowDims";
@@ -41,6 +42,7 @@ function App(): JSX.Element {
   const [idLookUp, setIdLookUp] =
     useState<Record<string, LocationData | ItemData>>();
   const [selected, setSelected] = useState<string>();
+  const [prevSelected, setPrevSelected] = useState<string>();
   const windowDims = useWindowDims();
 
   useEffect(() => {
@@ -65,6 +67,12 @@ function App(): JSX.Element {
   });
 
   function Editor({ selected }: { selected: string }): JSX.Element | null {
+    switch (selected) {
+      case "new-location":
+        return <NewLocation id={uuid()} addLocation={addLocation} />;
+      case "new-item":
+        return <Title>New Item</Title>;
+    }
     const object = idLookUp![selected];
     return "items" in object ? (
       <div style={{ margin: 8 }}>
@@ -77,6 +85,53 @@ function App(): JSX.Element {
         <ItemEditor item={object} />
       </div>
     );
+  }
+
+  function updateData(data: LocationData | ItemData) {
+    const prevObject = idLookUp![data.id];
+    if (prevObject) {
+      if ("items" in data && "items" in prevObject)
+        setData((prev) => ({ ...prev, [data.id]: { ...prevObject, ...data } }));
+      if ("connections" in data && "connections" in prevObject) {
+        const parent = idLookUp![data.parentId];
+        if ("items" in parent) {
+          setData((prev) => ({
+            ...prev,
+            [data.parentId]: {
+              ...parent,
+              items: { ...parent.items, [data.id]: { ...prevObject, ...data } },
+            },
+          }));
+        }
+      }
+    } else {
+      if ("items" in data) {
+        setData((prev) => ({ ...prev, [data.id]: data }));
+      }
+      if ("connections" in data) {
+        const parent = idLookUp![data.parentId];
+        if ("items" in parent) {
+          setData((prev) => ({
+            ...prev,
+            [data.parentId]: {
+              ...parent,
+              items: { ...parent.items, [data.id]: data },
+            },
+          }));
+        }
+      }
+    }
+  }
+
+  function addLocation(data: LocationFormData) {
+    const newLocation = {
+      id: data.id,
+      name: data.name,
+      description: data.description,
+      items: {},
+      minD: {},
+    };
+    updateData(newLocation);
   }
 
   function updateIdLookUp(id: string, object: LocationData | ItemData) {
@@ -125,8 +180,12 @@ function App(): JSX.Element {
   return (
     <Layout style={{ minHeight: "100vh" }}>
       <Sider width={SIDER_WIDTH} theme="light">
-        <Menu onClick={(e) => console.log(e)}>
-          <Menu.Item icon={<PlusSquareOutlined />} title="new-location">
+        <Menu selectable={false}>
+          <Menu.Item
+            icon={<PlusSquareOutlined />}
+            title="new-location"
+            onClick={() => setSelected("new-location")}
+          >
             New Location
           </Menu.Item>
         </Menu>
@@ -142,9 +201,16 @@ function App(): JSX.Element {
             linkDirectionalArrowRelPos={0.5}
             linkCurvature={0}
             linkWidth={1.15}
-            onNodeClick={(node) => {
-              setSelected(node.id as string);
-            }}
+            onNodeRightClick={(node) =>
+              navigator.permissions
+                .query({ name: "clipboard-write" })
+                .then((result) => {
+                  if (result.state == "granted" || result.state == "prompt") {
+                    navigator.clipboard.writeText(`${node.id}`);
+                  }
+                })
+            }
+            onNodeClick={(node) => setSelected(node.id as string)}
             linkAutoColorBy="group"
             nodeThreeObject={(node: TNode) => {
               const sprite = new SpriteText(node.name);
