@@ -77,12 +77,12 @@ type ConnectionFormData = {
 };
 
 type ItemFormData = {
+  id: string;
   name: string;
-  age: string;
-  // description: string;
-  // content: ContentFormData[];
-  // connections: ConnectionFormData[];
-  // link: string;
+  description: string;
+  content: ContentFormData[];
+  connections: ConnectionFormData[];
+  link?: string;
 };
 
 type LocationFormData = {

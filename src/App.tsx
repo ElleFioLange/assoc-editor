@@ -41,7 +41,7 @@ function App(): JSX.Element {
   const [data, setData] = useState<Record<string, LocationData>>();
   const [idLookUp, setIdLookUp] =
     useState<Record<string, LocationData | ItemData>>();
-  const [selected, setSelected] = useState<string>();
+  const [selected, setSelected] = useState<string>("new-location");
   const [prevSelected, setPrevSelected] = useState<string>();
   const windowDims = useWindowDims();
 
