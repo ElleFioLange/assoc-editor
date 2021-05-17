@@ -58,16 +58,30 @@ type LocationData = {
 
 type ImageFormData = {
   type: "image";
+  id: string;
+  name: string;
   path: string;
 };
 
 type VideoFormData = {
   type: "video";
+  id: string;
+  name: string;
   posterPath: string;
   videoPath: string;
 };
 
-type ContentFormData = ImageFormData | VideoFormData | MapInfo;
+type MapFormData = {
+  type: "map";
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  viewDelta: number;
+  description: string;
+};
+
+type ContentFormData = ImageFormData | VideoFormData | MapFormData;
 
 type ConnectionFormData = {
   isSource: boolean;
