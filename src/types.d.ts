@@ -1,69 +1,70 @@
-declare module "react-graph-vis";
 declare module "uuid";
 
-type ImageInfo = {
+type TImageData = {
   type: "image";
+  id: string;
+  name: string;
   uri: string;
   w: number;
   h: number;
 };
 
-type VideoInfo = {
+type TVideoData = {
   type: "video";
+  id: string;
+  name: string;
   videoUri: string;
   posterUri: string;
   w: number;
   h: number;
 };
 
-type MapInfo = {
+type TMapData = {
   type: "map";
+  id: string;
+  name: string;
   lat: number;
   lon: number;
   viewDelta: number;
-  title: string;
   description: string;
 };
 
-type ContentInfo = ({ type: string } & ImageInfo) | VideoInfo | MapInfo;
+type TContentData = TImageData | TVideoData | TMapData;
 
-type ConnectionData = {
+type TConnectionData = {
   id: string;
-  isSource: boolean;
-  sourceName: string;
-  sourceId: string;
-  sinkName: string;
-  sinkId: string;
   key: string;
+  isSource: boolean;
+  partnerId: string;
 };
 
-type ItemData = {
+type TItemData = {
   id: string;
   name: string;
   description: string;
-  parentName: string;
   parentId: string;
-  content: ContentInfo[];
-  connections: Record<string, ConnectionData>;
+  parentName: string;
+  connections: Record<string, TConnectionData>;
+  content: TContentData[];
   link?: string;
 };
 
-type LocationData = {
+type TLocationData = {
   id: string;
   name: string;
   description: string;
   minD: Record<string, number>;
-  items: Record<string, ItemData>;
+  items: Record<string, TItemData>;
 };
 
-type ImageFormData = {
+type TImageFormData = {
   type: "image";
   id: string;
   name: string;
   path: string;
 };
 
-type VideoFormData = {
+type TVideoFormData = {
   type: "video";
   id: string;
   name: string;
@@ -71,7 +72,7 @@ type VideoFormData = {
   videoPath: string;
 };
 
-type MapFormData = {
+type TMapFormData = {
   type: "map";
   id: string;
   name: string;
@@ -81,29 +82,32 @@ type MapFormData = {
   description: string;
 };
 
-type ContentFormData = ImageFormData | VideoFormData | MapFormData;
+type ContentType = "image" | "video" | "map";
 
-type ConnectionFormData = {
+type TContentFormData = TImageFormData | TVideoFormData | TMapFormData;
+
+type TConnectionFormData = {
+  id: string;
+  key: string;
   isSource: boolean;
   partnerId: string;
-  connectionId: string;
-  key: string;
 };
 
-type ItemFormData = {
+type TItemFormData = {
   id: string;
   name: string;
   description: string;
-  content: ContentFormData[];
-  connections: ConnectionFormData[];
+  parentId: string;
+  connections: Record<string, TConnectionFormData>;
+  content: TContentFormData[];
   link?: string;
 };
 
-type LocationFormData = {
+type TLocationFormData = {
   id: string;
   name: string;
   description: string;
-  items: string[];
+  items: TItemFormData[];
 };
 
 type TNode = {

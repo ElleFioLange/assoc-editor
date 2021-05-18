@@ -8,7 +8,7 @@ import {
   MinusCircleOutlined,
 } from "@ant-design/icons";
 import { v4 as uuid } from "uuid";
-import { ItemEditor, LocationEditor, NewLocation } from "./Editors";
+import { NewLocation, EditLocation } from "./Editors";
 import { ForceGraph3D } from "react-force-graph";
 import SpriteText from "three-spritetext";
 import useWindowDims from "./useWindowDims";
@@ -37,28 +37,64 @@ const { Title } = Typography;
 
 firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
 
-function App(): JSX.Element {
-  const [data, setData] = useState<Record<string, LocationData>>();
-  const [idLookUp, setIdLookUp] =
-    useState<Record<string, LocationData | ItemData>>();
+function App({ filePath }: { filePath: string }): JSX.Element {
+  const [data, setData] = useState<Record<string, TLocationFormData>>();
+  const [itemLookUp, setItemLookUp] =
+    useState<Record<string, TLocationFormData | TItemFormData>>();
   const [selected, setSelected] = useState<string>("new-location");
-  const [prevSelected, setPrevSelected] = useState<string>();
   const windowDims = useWindowDims();
 
   useEffect(() => {
     if (!data)
       firebase
-        .database()
-        .ref("userInit")
-        .once(
-          "value",
+        .firestore()
+        .collection("master")
+        .get()
+        .then(
           (snapshot) => {
-            const data = snapshot.val().map as Record<string, LocationData>;
-            setData(data);
-            Object.values(data).forEach((location) => {
-              updateIdLookUp(location.id, location);
+            const raw: TLocationData[] = [];
+            snapshot.forEach((doc) => raw.push(doc.data() as TLocationData));
+            const processed: Record<string, TLocationFormData> = {};
+            raw.forEach((location) => {
+              processed[location.id] = {
+                id: location.id,
+                name: location.name,
+                description: location.description,
+                items: Object.values(location.items).map((item) => ({
+                  id: item.id,
+                  name: item.name,
+                  description: item.description,
+                  parentId: item.parentId,
+                  connections: item.connections,
+                  content: item.content.map((content) => {
+                    switch (content.type) {
+                      case "image":
+                        return {
+                          type: content.type,
+                          id: content.id,
+                          name: content.name,
+                          path: `${filePath}/${location.id}/${item.id}/${content.id}.jpg`,
+                        };
+                      case "video":
+                        return {
+                          type: content.type,
+                          id: content.id,
+                          name: content.name,
+                          posterPath: `${filePath}/${location.id}/${item.id}/${content.id}.jpg`,
+                          videoPath: `${filePath}/${location.id}/${item.id}/${content.id}.mp4`,
+                        };
+                      case "map":
+                        return content;
+                    }
+                  }),
+                  link: item.link,
+                })),
+              };
+            });
+            setData(processed);
+            Object.values(processed).forEach((location) => {
               Object.values(location.items).forEach((item) =>
-                updateIdLookUp(item.id, item)
+                updateItemLookUp(item.id, item)
               );
             });
           },
@@ -66,86 +102,33 @@ function App(): JSX.Element {
         );
   });
 
-  function Editor({ selected }: { selected: string }): JSX.Element | null {
-    switch (selected) {
-      case "new-location":
-        return <NewLocation id={uuid()} addLocation={addLocation} />;
-      case "new-item":
-        return <Title>New Item</Title>;
-    }
-    const object = idLookUp![selected];
-    return "items" in object ? (
-      <div style={{ margin: 8 }}>
-        <Title level={3}>Location</Title>
-        <LocationEditor location={object} />
-      </div>
-    ) : (
-      <div style={{ margin: 8 }}>
-        <Title level={3}>Item</Title>
-        <ItemEditor item={object} />
-      </div>
-    );
-  }
-
-  function updateData(data: LocationData | ItemData) {
-    const prevObject = idLookUp![data.id];
-    if (prevObject) {
-      if ("items" in data && "items" in prevObject)
-        setData((prev) => ({ ...prev, [data.id]: { ...prevObject, ...data } }));
-      if ("connections" in data && "connections" in prevObject) {
-        const parent = idLookUp![data.parentId];
-        if ("items" in parent) {
-          setData((prev) => ({
-            ...prev,
-            [data.parentId]: {
-              ...parent,
-              items: { ...parent.items, [data.id]: { ...prevObject, ...data } },
-            },
-          }));
-        }
-      }
-    } else {
-      if ("items" in data) {
-        setData((prev) => ({ ...prev, [data.id]: data }));
-      }
-      if ("connections" in data) {
-        const parent = idLookUp![data.parentId];
-        if ("items" in parent) {
-          setData((prev) => ({
-            ...prev,
-            [data.parentId]: {
-              ...parent,
-              items: { ...parent.items, [data.id]: data },
-            },
-          }));
-        }
-      }
-    }
-  }
-
-  function addLocation(data: LocationFormData) {
-    const newLocation = {
-      id: data.id,
-      name: data.name,
-      description: data.description,
-      items: {},
-      minD: {},
-    };
-    updateData(newLocation);
-  }
-
-  function updateIdLookUp(id: string, object: LocationData | ItemData) {
-    setIdLookUp((prev) => ({
+  function updateItemLookUp(id: string, item: TItemFormData) {
+    setItemLookUp((prev) => ({
       ...prev,
-      [id]: object,
+      [id]: item,
     }));
   }
 
-  function processData(data: Record<string, LocationData>): {
+  function updateData(
+    update: TLocationFormData | { item: TItemFormData; index: number }
+  ) {
+    if (data) {
+      const newData = { ...data };
+      if ("items" in update) {
+        newData[update.id] = update;
+      } else {
+        const { item, index } = update;
+        newData[item.parentId].items[index] = item;
+      }
+      setData(newData);
+    }
+  }
+
+  function processData(data: Record<string, TLocationFormData>): {
     nodes: TNode[];
     links: TLink[];
   } {
-    let nodes: TNode[] = [];
+    const nodes: TNode[] = [];
     let links: TLink[] = [];
     Object.values(data).forEach((location) => {
       nodes.push({
@@ -162,24 +145,58 @@ function App(): JSX.Element {
           group: location.id,
         });
         Object.values(item.connections).forEach((connection) => {
-          links.push({
-            source: connection.sourceId,
-            target: connection.sinkId,
-            group: location.id,
-          });
+          if (connection.isSource)
+            links.push({
+              source: item.id,
+              target: connection.partnerId,
+              group: location.id,
+            });
         });
       });
     });
 
-    nodes = [...new Set(nodes)];
     links = [...new Set(links)];
 
     return { nodes, links };
   }
 
+  function addLocation(location: TLocationFormData) {
+    const newLocation = {
+      id: location.id,
+      name: location.name,
+      description: location.description,
+      items: [],
+    };
+    updateData(newLocation);
+  }
+
+  function Editor({ selected }: { selected: string }): JSX.Element | null {
+    switch (selected) {
+      case "new-location":
+        return <NewLocation id={uuid()} addLocation={addLocation} />;
+      case "new-item":
+        return <Title>New Item</Title>;
+    }
+    const object = data![selected] ? data![selected] : itemLookUp![selected];
+    if ("items" in object) {
+      return (
+        <EditLocation
+          location={object}
+          updateLocation={(data: TLocationFormData) => null}
+        />
+      );
+    } else {
+      return null;
+    }
+  }
+
   return (
-    <Layout style={{ minHeight: "100vh" }}>
-      <Sider width={SIDER_WIDTH} theme="light">
+    <Layout style={{ height: "100vh" }}>
+      <Sider
+        width={SIDER_WIDTH}
+        theme="light"
+        style={{ height: "100%", overflow: "auto" }}
+      >
         <Menu selectable={false}>
           <Menu.Item
             icon={<PlusSquareOutlined />}

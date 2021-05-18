@@ -6,7 +6,7 @@ import reportWebVitals from "./reportWebVitals";
 
 ReactDOM.render(
   <React.StrictMode>
-    <App />
+    <App filePath="/Users/sage/assoc-editor/dev_content" />
   </React.StrictMode>,
   document.getElementById("root")
 );
