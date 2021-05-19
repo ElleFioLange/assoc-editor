@@ -24,10 +24,6 @@ const firebaseConfig = {
 
 const SIDER_WIDTH = 450;
 
-// TODO Styling for the graph
-// TODO List out all needed functionality
-// TODO Firebase integration
-
 const { Content, Sider } = Layout;
 const { Title } = Typography;
 
@@ -35,11 +31,13 @@ firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
 
 function App({ filePath }: { filePath: string }): JSX.Element {
   const [data, setData] = useState<Record<string, TLocationForm>>();
+  // Using this to access items by id since they are typically stored within their locations
   const [itemLookUp, setItemLookUp] = useState<Record<string, TItemForm>>();
   const [selected, setSelected] = useState<string>("new-location");
   const windowDims = useWindowDims();
 
   useEffect(() => {
+    // Load data from firestore and process it to match the Forms
     if (!data)
       firebase
         .firestore()
@@ -97,6 +95,13 @@ function App({ filePath }: { filePath: string }): JSX.Element {
         );
   });
 
+  function indexOfId(list: { id: string }[], id: string) {
+    const index = list.map((item, index) => {
+      if (item.id === id) return index;
+    });
+    return index[0];
+  }
+
   function updateItemLookUp(id: string, item: TItemForm) {
     setItemLookUp((prev) => ({
       ...prev,
@@ -106,27 +111,32 @@ function App({ filePath }: { filePath: string }): JSX.Element {
 
   function updateData(update: TLocationForm | TItemForm) {
     if (data) {
-      console.log(update);
       const newData = { ...data };
       if ("items" in update) {
         newData[update.id] = update;
         update.items.forEach((item) => updateItemLookUp(item.id, item));
       } else {
-        const index = newData[update.parentId].items.indexOf(update);
-        if (index === -1) {
+        const index = indexOfId(newData[update.parentId].items, update.id);
+        if (index != undefined) {
           newData[update.parentId].items[index] = update;
         } else {
           newData[update.parentId].items.push(update);
         }
       }
-      setData(cleanConnections(newData));
+      const cleaned = cleanConnections(newData);
+      console.log("after pass");
+      console.log(cleaned);
+      setData(cleaned);
+      // setData(cleanConnections(newData));
     }
   }
 
-  function cleanConnections(data: Record<string, TLocationForm>) {
-    const cleaned = { ...data };
+  // Function for making sure that any connections are on both items
+  function cleanConnections(dirty: Record<string, TLocationForm>) {
+    const cleaned = { ...dirty };
     Object.values(cleaned).forEach((location) => {
       location.items.forEach((item) => {
+        console.log(item);
         Object.values(item.connections).forEach((connection) => {
           const connectionMirror = {
             id: connection.id,
@@ -135,22 +145,30 @@ function App({ filePath }: { filePath: string }): JSX.Element {
             partnerId: item.id,
           };
           const target = itemLookUp![connection.partnerId];
-          const targetIndex = cleaned[target.parentId].items.indexOf(target);
-          const connectionIndex = target.connections.indexOf(connectionMirror);
-          if (targetIndex !== -1) {
-            if (connectionIndex === -1) {
-              cleaned[target.parentId].items[targetIndex].connections.push(
-                connectionMirror
-              );
-            } else {
+          const targetIndex = indexOfId(
+            cleaned[target.parentId].items,
+            target.id
+          );
+          const connectionIndex = indexOfId(
+            target.connections,
+            connectionMirror.id
+          );
+          if (targetIndex != undefined) {
+            if (connectionIndex != undefined) {
               cleaned[target.parentId].items[targetIndex].connections[
                 connectionIndex
               ] = connectionMirror;
+            } else {
+              cleaned[target.parentId].items[targetIndex].connections.push(
+                connectionMirror
+              );
             }
           }
         });
       });
     });
+    console.log("cleaned");
+    console.log(cleaned);
     return cleaned;
   }
 
@@ -210,7 +228,7 @@ function App({ filePath }: { filePath: string }): JSX.Element {
     } else {
       return (
         <div style={{ margin: 8, overflow: "auto" }}>
-          <Title level={3}>Edit Location</Title>
+          <Title level={3}>Edit Item</Title>
           <ItemEditor
             data={object}
             submit={(item: TItemForm) => updateData(item)}
@@ -248,47 +266,7 @@ function App({ filePath }: { filePath: string }): JSX.Element {
             linkDirectionalArrowRelPos={0.5}
             linkCurvature={0}
             linkWidth={1.15}
-            onLinkRightClick={({ source, target }) => {
-              if (typeof source !== "string" && typeof target !== "string") {
-                if (typeof source !== "number" && typeof target !== "number") {
-                  if (source && target) {
-                    if (
-                      typeof source.id === "string" &&
-                      typeof target.id === "string"
-                    ) {
-                      const sourceItem = itemLookUp![source.id];
-                      const targetItem = itemLookUp![target.id];
-                      if (sourceItem && targetItem) {
-                        const newData = { ...data };
-                        const sourceIndex =
-                          newData[sourceItem.parentId].items.indexOf(
-                            sourceItem
-                          );
-                        const targetIndex =
-                          newData[targetItem.parentId].items.indexOf(
-                            targetItem
-                          );
-                        const sourceConnectionIndex =
-                          sourceItem.connections.map(({ partnerId }, index) => {
-                            if (target.id === partnerId) return index;
-                          });
-                        const targetConnectionIndex =
-                          targetItem.connections.map(({ partnerId }, index) => {
-                            if (source.id === partnerId) return index;
-                          });
-                        newData[sourceItem.parentId].items[
-                          sourceIndex
-                        ].connections.splice(sourceConnectionIndex[0]!, 1);
-                        newData[targetItem.parentId].items[
-                          targetIndex
-                        ].connections.splice(targetConnectionIndex[0]!, 1);
-                        setData(newData);
-                      }
-                    }
-                  }
-                }
-              }
-            }}
+            // Copy the item or location id on right click
             onNodeRightClick={(node) =>
               navigator.permissions
                 .query({ name: "clipboard-write" })

@@ -158,7 +158,6 @@ export function ItemEditor({
               connections.forEach((connection: TConnectionForm) => {
                 if (!connection.id) connection.id = uuid();
               });
-              console.log(connections);
               const content = itemForm.getFieldValue("content") || [];
               const item = {
                 ...values,
