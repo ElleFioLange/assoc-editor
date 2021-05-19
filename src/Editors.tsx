@@ -160,7 +160,12 @@ export function ItemEditor({
               });
               console.log(connections);
               const content = itemForm.getFieldValue("content") || [];
-              const item = { ...values, connections, content } as TItemForm;
+              const item = {
+                ...values,
+                connections,
+                content,
+                parentId: typeof data != "string" ? data.parentId : undefined,
+              } as TItemForm;
               submit(item);
             }
           }

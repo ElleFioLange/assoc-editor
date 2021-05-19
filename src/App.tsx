@@ -106,6 +106,7 @@ function App({ filePath }: { filePath: string }): JSX.Element {
 
   function updateData(update: TLocationForm | TItemForm) {
     if (data) {
+      console.log(update);
       const newData = { ...data };
       if ("items" in update) {
         newData[update.id] = update;
@@ -157,7 +158,6 @@ function App({ filePath }: { filePath: string }): JSX.Element {
     nodes: TNode[];
     links: TLink[];
   } {
-    console.log(data);
     const nodes: TNode[] = [];
     let links: TLink[] = [];
     Object.values(data).forEach((location) => {
@@ -186,7 +186,6 @@ function App({ filePath }: { filePath: string }): JSX.Element {
     });
 
     links = [...new Set(links)];
-    console.log(links);
 
     return { nodes, links };
   }
