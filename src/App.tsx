@@ -2,13 +2,9 @@
 import React, { useState, useEffect } from "react";
 import firebase from "firebase";
 import { Layout, Menu, Typography } from "antd";
-import {
-  PlusSquareOutlined,
-  PlusOutlined,
-  MinusCircleOutlined,
-} from "@ant-design/icons";
+import { PlusSquareOutlined } from "@ant-design/icons";
 import { v4 as uuid } from "uuid";
-import { NewLocation, EditLocation } from "./Editors";
+import { LocationEditor, ItemEditor } from "./Editors";
 import { ForceGraph3D } from "react-force-graph";
 import SpriteText from "three-spritetext";
 import useWindowDims from "./useWindowDims";
@@ -38,9 +34,8 @@ const { Title } = Typography;
 firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
 
 function App({ filePath }: { filePath: string }): JSX.Element {
-  const [data, setData] = useState<Record<string, TLocationFormData>>();
-  const [itemLookUp, setItemLookUp] =
-    useState<Record<string, TLocationFormData | TItemFormData>>();
+  const [data, setData] = useState<Record<string, TLocationForm>>();
+  const [itemLookUp, setItemLookUp] = useState<Record<string, TItemForm>>();
   const [selected, setSelected] = useState<string>("new-location");
   const windowDims = useWindowDims();
 
@@ -52,9 +47,9 @@ function App({ filePath }: { filePath: string }): JSX.Element {
         .get()
         .then(
           (snapshot) => {
-            const raw: TLocationData[] = [];
-            snapshot.forEach((doc) => raw.push(doc.data() as TLocationData));
-            const processed: Record<string, TLocationFormData> = {};
+            const raw: TLocation[] = [];
+            snapshot.forEach((doc) => raw.push(doc.data() as TLocation));
+            const processed: Record<string, TLocationForm> = {};
             raw.forEach((location) => {
               processed[location.id] = {
                 id: location.id,
@@ -65,7 +60,7 @@ function App({ filePath }: { filePath: string }): JSX.Element {
                   name: item.name,
                   description: item.description,
                   parentId: item.parentId,
-                  connections: item.connections,
+                  connections: Object.values(item.connections),
                   content: item.content.map((content) => {
                     switch (content.type) {
                       case "image":
@@ -102,32 +97,67 @@ function App({ filePath }: { filePath: string }): JSX.Element {
         );
   });
 
-  function updateItemLookUp(id: string, item: TItemFormData) {
+  function updateItemLookUp(id: string, item: TItemForm) {
     setItemLookUp((prev) => ({
       ...prev,
       [id]: item,
     }));
   }
 
-  function updateData(
-    update: TLocationFormData | { item: TItemFormData; index: number }
-  ) {
+  function updateData(update: TLocationForm | TItemForm) {
     if (data) {
       const newData = { ...data };
       if ("items" in update) {
         newData[update.id] = update;
+        update.items.forEach((item) => updateItemLookUp(item.id, item));
       } else {
-        const { item, index } = update;
-        newData[item.parentId].items[index] = item;
+        const index = newData[update.parentId].items.indexOf(update);
+        if (index === -1) {
+          newData[update.parentId].items[index] = update;
+        } else {
+          newData[update.parentId].items.push(update);
+        }
       }
-      setData(newData);
+      setData(cleanConnections(newData));
     }
   }
 
-  function processData(data: Record<string, TLocationFormData>): {
+  function cleanConnections(data: Record<string, TLocationForm>) {
+    const cleaned = { ...data };
+    Object.values(cleaned).forEach((location) => {
+      location.items.forEach((item) => {
+        Object.values(item.connections).forEach((connection) => {
+          const connectionMirror = {
+            id: connection.id,
+            isSource: !connection.isSource,
+            key: connection.key,
+            partnerId: item.id,
+          };
+          const target = itemLookUp![connection.partnerId];
+          const targetIndex = cleaned[target.parentId].items.indexOf(target);
+          const connectionIndex = target.connections.indexOf(connectionMirror);
+          if (targetIndex !== -1) {
+            if (connectionIndex === -1) {
+              cleaned[target.parentId].items[targetIndex].connections.push(
+                connectionMirror
+              );
+            } else {
+              cleaned[target.parentId].items[targetIndex].connections[
+                connectionIndex
+              ] = connectionMirror;
+            }
+          }
+        });
+      });
+    });
+    return cleaned;
+  }
+
+  function processData(data: Record<string, TLocationForm>): {
     nodes: TNode[];
     links: TLink[];
   } {
+    console.log(data);
     const nodes: TNode[] = [];
     let links: TLink[] = [];
     Object.values(data).forEach((location) => {
@@ -156,37 +186,38 @@ function App({ filePath }: { filePath: string }): JSX.Element {
     });
 
     links = [...new Set(links)];
+    console.log(links);
 
     return { nodes, links };
   }
 
-  function addLocation(location: TLocationFormData) {
-    const newLocation = {
-      id: location.id,
-      name: location.name,
-      description: location.description,
-      items: [],
-    };
-    updateData(newLocation);
-  }
-
   function Editor({ selected }: { selected: string }): JSX.Element | null {
-    switch (selected) {
-      case "new-location":
-        return <NewLocation id={uuid()} addLocation={addLocation} />;
-      case "new-item":
-        return <Title>New Item</Title>;
+    if (selected === "new-location") {
+      return (
+        <LocationEditor
+          data={uuid()}
+          submit={(location: TLocationForm) => updateData(location)}
+        />
+      );
     }
     const object = data![selected] ? data![selected] : itemLookUp![selected];
     if ("items" in object) {
       return (
-        <EditLocation
-          location={object}
-          updateLocation={(data: TLocationFormData) => null}
+        <LocationEditor
+          data={object}
+          submit={(location: TLocationForm) => updateData(location)}
         />
       );
     } else {
-      return null;
+      return (
+        <div style={{ margin: 8, overflow: "auto" }}>
+          <Title level={3}>Edit Location</Title>
+          <ItemEditor
+            data={object}
+            submit={(item: TItemForm) => updateData(item)}
+          />
+        </div>
+      );
     }
   }
 
@@ -218,6 +249,47 @@ function App({ filePath }: { filePath: string }): JSX.Element {
             linkDirectionalArrowRelPos={0.5}
             linkCurvature={0}
             linkWidth={1.15}
+            onLinkRightClick={({ source, target }) => {
+              if (typeof source !== "string" && typeof target !== "string") {
+                if (typeof source !== "number" && typeof target !== "number") {
+                  if (source && target) {
+                    if (
+                      typeof source.id === "string" &&
+                      typeof target.id === "string"
+                    ) {
+                      const sourceItem = itemLookUp![source.id];
+                      const targetItem = itemLookUp![target.id];
+                      if (sourceItem && targetItem) {
+                        const newData = { ...data };
+                        const sourceIndex =
+                          newData[sourceItem.parentId].items.indexOf(
+                            sourceItem
+                          );
+                        const targetIndex =
+                          newData[targetItem.parentId].items.indexOf(
+                            targetItem
+                          );
+                        const sourceConnectionIndex =
+                          sourceItem.connections.map(({ partnerId }, index) => {
+                            if (target.id === partnerId) return index;
+                          });
+                        const targetConnectionIndex =
+                          targetItem.connections.map(({ partnerId }, index) => {
+                            if (source.id === partnerId) return index;
+                          });
+                        newData[sourceItem.parentId].items[
+                          sourceIndex
+                        ].connections.splice(sourceConnectionIndex[0]!, 1);
+                        newData[targetItem.parentId].items[
+                          targetIndex
+                        ].connections.splice(targetConnectionIndex[0]!, 1);
+                        setData(newData);
+                      }
+                    }
+                  }
+                }
+              }
+            }}
             onNodeRightClick={(node) =>
               navigator.permissions
                 .query({ name: "clipboard-write" })

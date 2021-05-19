@@ -1,6 +1,6 @@
 declare module "uuid";
 
-type TImageData = {
+type TImage = {
   type: "image";
   id: string;
   name: string;
@@ -9,7 +9,7 @@ type TImageData = {
   h: number;
 };
 
-type TVideoData = {
+type TVideo = {
   type: "video";
   id: string;
   name: string;
@@ -19,7 +19,7 @@ type TVideoData = {
   h: number;
 };
 
-type TMapData = {
+type TMap = {
   type: "map";
   id: string;
   name: string;
@@ -29,42 +29,42 @@ type TMapData = {
   description: string;
 };
 
-type TContentData = TImageData | TVideoData | TMapData;
+type TContent = TImage | TVideo | TMap;
 
-type TConnectionData = {
+type TConnection = {
   id: string;
   key: string;
   isSource: boolean;
   partnerId: string;
 };
 
-type TItemData = {
+type TItem = {
   id: string;
   name: string;
   description: string;
   parentId: string;
   parentName: string;
-  connections: Record<string, TConnectionData>;
-  content: TContentData[];
+  connections: Record<string, TConnection>;
+  content: TContent[];
   link?: string;
 };
 
-type TLocationData = {
+type TLocation = {
   id: string;
   name: string;
   description: string;
   minD: Record<string, number>;
-  items: Record<string, TItemData>;
+  items: Record<string, TItem>;
 };
 
-type TImageFormData = {
+type TImageForm = {
   type: "image";
   id: string;
   name: string;
   path: string;
 };
 
-type TVideoFormData = {
+type TVideoForm = {
   type: "video";
   id: string;
   name: string;
@@ -72,7 +72,7 @@ type TVideoFormData = {
   videoPath: string;
 };
 
-type TMapFormData = {
+type TMapForm = {
   type: "map";
   id: string;
   name: string;
@@ -84,30 +84,30 @@ type TMapFormData = {
 
 type ContentType = "image" | "video" | "map";
 
-type TContentFormData = TImageFormData | TVideoFormData | TMapFormData;
+type TContentForm = TImageForm | TVideoForm | TMapForm;
 
-type TConnectionFormData = {
+type TConnectionForm = {
   id: string;
   key: string;
   isSource: boolean;
   partnerId: string;
 };
 
-type TItemFormData = {
+type TItemForm = {
   id: string;
   name: string;
   description: string;
   parentId: string;
-  connections: Record<string, TConnectionFormData>;
-  content: TContentFormData[];
+  connections: TConnectionForm[];
+  content: TContentForm[];
   link?: string;
 };
 
-type TLocationFormData = {
+type TLocationForm = {
   id: string;
   name: string;
   description: string;
-  items: TItemFormData[];
+  items: TItemForm[];
 };
 
 type TNode = {

@@ -15,25 +15,47 @@ import {
   EditOutlined,
   MinusCircleOutlined,
   PlusCircleOutlined,
+  UpOutlined,
+  DownOutlined,
 } from "@ant-design/icons";
 import "antd/dist/antd.css";
 
 const { TextArea } = Input;
 const { Title } = Typography;
 
-function ContentForm({
-  id,
-  type,
-  updateType,
+function ContentEditor({
+  data,
+  onFinish,
 }: {
-  id: string;
-  type: ContentType;
-  updateType: (type: ContentType) => void;
+  data: string | TContentForm;
+  onFinish: () => void;
 }) {
+  const [form] = Form.useForm();
+
+  const [type, setType] = useState<ContentType>(
+    typeof data === "string" ? "image" : data.type
+  );
+
+  function updateType(type: ContentType) {
+    setType(type);
+    form.setFieldsValue({ type });
+  }
+
   return (
-    <>
-      <Form.Item name="id" initialValue={id} hidden />
-      <Space style={{ marginBottom: 16, display: "block" }}>Id: {id}</Space>
+    <Form
+      form={form}
+      layout="vertical"
+      name="contentForm"
+      initialValues={typeof data === "string" ? undefined : data}
+    >
+      <Form.Item
+        name="id"
+        initialValue={typeof data === "string" ? data : data.id}
+        hidden
+      />
+      <Space style={{ marginBottom: 16, display: "block" }}>
+        Id: {typeof data === "string" ? data : data.id}
+      </Space>
       <Select
         style={{ minWidth: 75 }}
         options={[
@@ -83,31 +105,6 @@ function ContentForm({
           </Form.Item>
         </>
       )}
-    </>
-  );
-}
-
-function NewContent({
-  id,
-  onFinish,
-  formName,
-}: {
-  id: string;
-  onFinish: () => void;
-  formName: string;
-}) {
-  const [form] = Form.useForm();
-
-  const [type, setType] = useState<ContentType>("image");
-
-  function updateType(type: ContentType) {
-    setType(type);
-    form.setFieldsValue({ type });
-  }
-
-  return (
-    <Form form={form} layout="vertical" name={formName}>
-      <ContentForm id={id} type={type} updateType={updateType} />
       <Button
         type="primary"
         block
@@ -122,297 +119,222 @@ function NewContent({
   );
 }
 
-function EditContent({
-  content,
+export function ItemEditor({
+  data,
   onFinish,
-  formName,
+  submit,
 }: {
-  content: TContentFormData;
-  onFinish: () => void;
-  formName: string;
-}) {
-  const [form] = Form.useForm();
-
-  const [type, setType] = useState<ContentType>(content.type);
-
-  function updateType(type: ContentType) {
-    setType(type);
-    form.setFieldsValue({ type });
-  }
-
-  return (
-    <Form form={form} layout="vertical" name={formName} initialValues={content}>
-      <ContentForm id={content.id} type={type} updateType={updateType} />
-      <Button
-        type="primary"
-        block
-        onClick={() => {
-          form.submit();
-          onFinish();
-        }}
-      >
-        Submit
-      </Button>
-    </Form>
-  );
-}
-
-function ItemForm({
-  id,
-  openNewContent,
-  openEditContent,
-}: {
-  id: string;
-  openNewContent: () => void;
-  openEditContent: (content: TContentFormData) => void;
+  data: string | TItemForm;
+  onFinish?: () => void;
+  submit?: (item: TItemForm) => void;
 }): JSX.Element {
-  return (
-    <>
-      <Form.Item name="id" initialValue={id} hidden />
-      <Space style={{ marginBottom: 16 }}>Id: {id}</Space>
-      <Form.Item name="name" label="Name" rules={[{ required: true }]}>
-        <Input />
-      </Form.Item>
-      <Form.Item
-        name="description"
-        label="Description"
-        rules={[{ required: true }]}
-      >
-        <TextArea rows={6} />
-      </Form.Item>
-      <Form.Item label="Connections">
-        <Form.List name="connections">
-          {(fields, { add, remove }) => (
-            <>
-              {fields.map(({ key, name, fieldKey, ...restField }) => (
-                <Space
-                  key={key}
-                  style={{ display: "flex", marginBottom: 8 }}
-                  align="baseline"
-                >
-                  <Form.Item
-                    {...restField}
-                    name={[name, "isSource"]}
-                    fieldKey={[fieldKey, "isSource"]}
-                    rules={[{ required: true }]}
-                    valuePropName="checked"
-                    initialValue={false}
-                  >
-                    <Checkbox>Source?</Checkbox>
-                  </Form.Item>
-                  <Form.Item
-                    {...restField}
-                    name={[name, "partnerId"]}
-                    fieldKey={[fieldKey, "partnerId"]}
-                    rules={[{ required: true }]}
-                  >
-                    <Input placeholder="partnerId" />
-                  </Form.Item>
-                  <Form.Item
-                    {...restField}
-                    name={[name, "key"]}
-                    fieldKey={[fieldKey, "key"]}
-                    rules={[{ required: true }]}
-                  >
-                    <Input placeholder="key" />
-                  </Form.Item>
-                  <Button
-                    style={{ marginLeft: 12 }}
-                    icon={<MinusCircleOutlined />}
-                    onClick={() => remove(name)}
-                  />
-                </Space>
-              ))}
-              <Button
-                type="dashed"
-                onClick={add}
-                block
-                icon={<PlusCircleOutlined />}
-              >
-                Add connection
-              </Button>
-            </>
-          )}
-        </Form.List>
-      </Form.Item>
-      <Form.Item
-        label="Content"
-        shouldUpdate={(prevValues, curValues) =>
-          prevValues.content !== curValues.content
-        }
-      >
-        {({ getFieldValue, setFieldsValue }) => {
-          const content: TContentFormData[] = getFieldValue("content") || [];
-          return content.length ? (
-            <ul>
-              {content.map((item, index) => (
-                <li key={index} style={{ marginBottom: 8 }}>
-                  {item.name} - {item.type}
-                  <Button
-                    style={{ marginLeft: 12 }}
-                    icon={<EditOutlined />}
-                    onClick={() => openEditContent(item)}
-                  />
-                  <Button
-                    style={{ marginLeft: 12 }}
-                    icon={<MinusCircleOutlined />}
-                    onClick={() => {
-                      const newContent = [...content];
-                      newContent.splice(index, 1);
-                      setFieldsValue({ content: newContent });
-                    }}
-                  />
-                </li>
-              ))}
-            </ul>
-          ) : null;
-        }}
-      </Form.Item>
-      <Button
-        style={{ marginBottom: 12 }}
-        type="dashed"
-        block
-        icon={<PlusCircleOutlined />}
-        onClick={openNewContent}
-      >
-        Add Content
-      </Button>
-    </>
-  );
-}
-
-function NewLocationItem({
-  id,
-  onFinish,
-}: {
-  id: string;
-  onFinish: () => void;
-}) {
   const [form] = Form.useForm();
 
-  const [newContent, setNewContent] = useState(false);
-  const [editContent, setEditContent] = useState<TContentFormData>();
+  const [contentEditor, setContentEditor] = useState<string | TContentForm>();
 
   return (
-    <Form.Provider>
-      <Form form={form} layout="vertical" name="newItemForm">
-        <ItemForm
-          id={id}
-          openNewContent={() => setNewContent(true)}
-          openEditContent={(content: TContentFormData) =>
-            setEditContent(content)
+    <Form.Provider
+      onFormFinish={(name, { values, forms }) => {
+        switch (name) {
+          case "contentForm": {
+            const { itemForm } = forms;
+            const content = itemForm.getFieldValue("content") || [];
+            const index = content.getIndexOf(values);
+            if (index === -1)
+              itemForm.setFieldsValue({
+                content: [...content, values],
+              });
+            else {
+              const newContent = [...content];
+              newContent[index] = values;
+              itemForm.setFieldsValue({ content: newContent });
+            }
+            break;
           }
-        />
-        <Button
-          type="primary"
-          block
-          onClick={() => {
-            form.submit();
-            onFinish();
-          }}
-        >
-          Submit
-        </Button>
-      </Form>
-      {newContent && (
-        <Modal
-          title="New Content"
-          visible={true}
-          width={"auto"}
-          style={{ top: 12 }}
-          onCancel={() => setNewContent(false)}
-        >
-          <NewContent
-            id={uuid()}
-            onFinish={() => setNewContent(false)}
-            formName="newItemNewContentForm"
-          />
-        </Modal>
-      )}
-      {editContent && (
-        <Modal
-          title="Edit Content"
-          visible={true}
-          width={"auto"}
-          style={{ top: 12 }}
-          onCancel={() => setEditContent(undefined)}
-        >
-          <EditContent
-            content={editContent}
-            onFinish={() => setEditContent(undefined)}
-            formName="newItemEditContentForm"
-          />
-        </Modal>
-      )}
-    </Form.Provider>
-  );
-}
-
-function EditLocationItem({
-  item,
-  onFinish,
-}: {
-  item: TItemFormData;
-  onFinish: () => void;
-}) {
-  const [form] = Form.useForm();
-
-  const [newContent, setNewContent] = useState(false);
-  const [editContent, setEditContent] = useState<TContentFormData>();
-
-  return (
-    <Form.Provider>
+          case "itemForm": {
+            if (submit) {
+              const { itemForm } = forms;
+              const connections = itemForm.getFieldValue("connections") || [];
+              connections.forEach((connection: TConnectionForm) => {
+                if (!connection.id) connection.id = uuid();
+              });
+              console.log(connections);
+              const content = itemForm.getFieldValue("content") || [];
+              const item = { ...values, connections, content } as TItemForm;
+              submit(item);
+            }
+          }
+        }
+      }}
+    >
       <Form
         form={form}
         layout="vertical"
-        name="editItemForm"
-        initialValues={item}
+        name="itemForm"
+        initialValues={typeof data === "string" ? undefined : data}
       >
-        <ItemForm
-          id={item.id}
-          openNewContent={() => setNewContent(true)}
-          openEditContent={(content: TContentFormData) =>
-            setEditContent(content)
-          }
+        <Form.Item
+          name="id"
+          initialValue={typeof data === "string" ? data : data.id}
+          hidden
         />
+        <Space style={{ marginBottom: 16 }}>
+          Id: {typeof data === "string" ? data : data.id}
+        </Space>
+        <Form.Item name="name" label="Name" rules={[{ required: true }]}>
+          <Input />
+        </Form.Item>
+        <Form.Item
+          name="description"
+          label="Description"
+          rules={[{ required: true }]}
+        >
+          <TextArea rows={6} />
+        </Form.Item>
+        <Form.Item label="Connections">
+          <Form.List name="connections">
+            {(fields, { add, remove }) => (
+              <>
+                {fields.map(({ key, name, fieldKey, ...restField }) => (
+                  <Space
+                    key={key}
+                    style={{ display: "flex", marginBottom: 8 }}
+                    align="baseline"
+                  >
+                    <Form.Item
+                      {...restField}
+                      name={[name, "isSource"]}
+                      fieldKey={[fieldKey, "isSource"]}
+                      rules={[{ required: true }]}
+                      valuePropName="checked"
+                      initialValue={false}
+                    >
+                      <Checkbox>Source?</Checkbox>
+                    </Form.Item>
+                    <Form.Item
+                      {...restField}
+                      name={[name, "partnerId"]}
+                      fieldKey={[fieldKey, "partnerId"]}
+                      rules={[{ required: true }]}
+                    >
+                      <Input placeholder="partnerId" />
+                    </Form.Item>
+                    <Form.Item
+                      {...restField}
+                      name={[name, "key"]}
+                      fieldKey={[fieldKey, "key"]}
+                      rules={[{ required: true }]}
+                    >
+                      <Input placeholder="key" />
+                    </Form.Item>
+                    <Button
+                      style={{ marginLeft: 12 }}
+                      icon={<MinusCircleOutlined />}
+                      onClick={() => remove(name)}
+                    />
+                  </Space>
+                ))}
+                <Button
+                  type="dashed"
+                  onClick={() => add()}
+                  block
+                  icon={<PlusCircleOutlined />}
+                >
+                  Add connection
+                </Button>
+              </>
+            )}
+          </Form.List>
+        </Form.Item>
+        <Form.Item
+          label="Content"
+          shouldUpdate={(prevValues, curValues) =>
+            prevValues.content !== curValues.content
+          }
+        >
+          {({ getFieldValue, setFieldsValue }) => {
+            const content: TContentForm[] = getFieldValue("content") || [];
+            return content.length ? (
+              <ul>
+                {content.map((item, index) => (
+                  <li key={index} style={{ marginBottom: 8 }}>
+                    {item.name} - {item.type}
+                    <Button
+                      style={{ marginLeft: 12 }}
+                      icon={<EditOutlined />}
+                      onClick={() => setContentEditor(item)}
+                    />
+                    <Button
+                      style={{ marginLeft: 12 }}
+                      icon={<UpOutlined />}
+                      onClick={() => {
+                        if (index != 0) {
+                          const newContent = [...content];
+                          const item = newContent.splice(index, 1);
+                          newContent.splice(index - 1, 0, item[0]);
+                          setFieldsValue({ content: newContent });
+                        }
+                      }}
+                    />
+                    <Button
+                      style={{ marginLeft: 12 }}
+                      icon={<DownOutlined />}
+                      onClick={() => {
+                        if (index != content.length - 1) {
+                          const newContent = [...content];
+                          const item = newContent.splice(index, 1);
+                          newContent.splice(index + 1, 0, item[0]);
+                          setFieldsValue({ content: newContent });
+                        }
+                      }}
+                    />
+                    <Button
+                      style={{ marginLeft: 12 }}
+                      icon={<MinusCircleOutlined />}
+                      onClick={() => {
+                        const newContent = [...content];
+                        newContent.splice(index, 1);
+                        setFieldsValue({ content: newContent });
+                      }}
+                    />
+                  </li>
+                ))}
+              </ul>
+            ) : null;
+          }}
+        </Form.Item>
+        <Button
+          style={{ marginBottom: 12 }}
+          type="dashed"
+          block
+          icon={<PlusCircleOutlined />}
+          onClick={() => setContentEditor(uuid())}
+        >
+          Add Content
+        </Button>
         <Button
           type="primary"
           block
           onClick={() => {
             form.submit();
-            onFinish();
+            if (onFinish) onFinish();
           }}
+          style={{ marginBottom: 16 }}
         >
           Submit
         </Button>
       </Form>
-      {newContent && (
+      {contentEditor && (
         <Modal
           title="New Content"
           visible={true}
           width={"auto"}
           style={{ top: 12 }}
-          onCancel={() => setNewContent(false)}
+          onCancel={() => setContentEditor(undefined)}
         >
-          <NewContent
-            id={uuid()}
-            onFinish={() => setNewContent(false)}
-            formName="editItemNewContentForm"
-          />
-        </Modal>
-      )}
-      {editContent && (
-        <Modal
-          title="Edit Content"
-          visible={true}
-          width={"auto"}
-          style={{ top: 12 }}
-          onCancel={() => setEditContent(undefined)}
-        >
-          <EditContent
-            content={editContent}
-            onFinish={() => setEditContent(undefined)}
-            formName="editItemEditContentForm"
+          <ContentEditor
+            data={contentEditor}
+            onFinish={() => setContentEditor(undefined)}
           />
         </Modal>
       )}
@@ -420,288 +342,140 @@ function EditLocationItem({
   );
 }
 
-function LocationForm({
-  id,
-  openNewItem,
-  openEditItem,
+export function LocationEditor({
+  data,
+  submit,
 }: {
-  id: string;
-  openNewItem: () => void;
-  openEditItem: (item: TItemFormData, index: number) => void;
-}) {
-  return (
-    <>
-      <Form.Item name="id" initialValue={id} hidden />
-      <Space style={{ marginBottom: 16 }}>Id: {id}</Space>
-      <Form.Item label="Name" name="name" rules={[{ required: true }]}>
-        <Input />
-      </Form.Item>
-      <Form.Item
-        label="Description"
-        name="description"
-        rules={[{ required: true }]}
-      >
-        <TextArea rows={6} />
-      </Form.Item>
-      <Form.Item
-        label="Items"
-        shouldUpdate={(prevValues, curValues) =>
-          prevValues.items !== curValues.items
-        }
-      >
-        {({ getFieldValue, setFieldsValue }) => {
-          const items: TItemFormData[] = getFieldValue("items") || [];
-          return items.length ? (
-            <ul>
-              {items.map((item, index) => (
-                <li key={index} style={{ marginBottom: 8 }}>
-                  {item.name}
-                  <Button
-                    style={{ marginLeft: 12 }}
-                    icon={<EditOutlined />}
-                    onClick={() => openEditItem(item, index)}
-                  />
-                  <Button
-                    style={{ marginLeft: 12 }}
-                    icon={<MinusCircleOutlined />}
-                    onClick={() => {
-                      const newItems = [...items];
-                      newItems.splice(index, 1);
-                      setFieldsValue({ items: newItems });
-                    }}
-                  />
-                </li>
-              ))}
-            </ul>
-          ) : null;
-        }}
-      </Form.Item>
-      <Button
-        style={{ marginBottom: 12 }}
-        type="dashed"
-        block
-        icon={<PlusCircleOutlined />}
-        onClick={openNewItem}
-      >
-        Add Item
-      </Button>
-    </>
-  );
-}
-
-export function NewLocation({
-  id,
-  addLocation,
-}: {
-  id: string;
-  addLocation: (data: TLocationFormData) => void;
+  data: string | TLocationForm;
+  submit: (data: TLocationForm) => void;
 }): JSX.Element {
   const [form] = Form.useForm();
 
-  const [newItem, setNewItem] = useState(false);
-  const [editItem, setEditItem] = useState<TItemFormData>();
-
-  function submitLocation(values: TLocationFormData) {
-    console.log(values);
-    // addLocation(values);
-  }
+  const [itemEditor, setItemEditor] = useState<string | TItemForm>();
 
   return (
     <div style={{ margin: 8, overflow: "auto" }}>
-      <Title level={3}>New Location</Title>
+      <Title level={3}>
+        {typeof data === "string" ? "New" : "Edit"} Location
+      </Title>
       <Form.Provider
         onFormFinish={(name, { values, forms }) => {
           switch (name) {
             case "locationForm": {
               const { locationForm } = forms;
               const items = locationForm.getFieldValue("items") || [];
-              const location = { ...values, items } as TLocationFormData;
-              submitLocation(location);
+              const location = { ...values, items } as TLocationForm;
+              submit(location);
               break;
             }
-            case "newItemForm": {
-              const { locationForm, newItemForm } = forms;
+            case "itemForm": {
+              const { locationForm, itemForm } = forms;
               const items = locationForm.getFieldValue("items") || [];
-              const connections = newItemForm.getFieldValue("connections") || [];
-              console.log(connections);
-              const content = newItemForm.getFieldValue("content") || [];
-              locationForm.setFieldsValue({
-                items: [...items, { ...values, content }],
+              const connections = itemForm.getFieldValue("connections") || [];
+              connections.forEach((connection: TConnectionForm) => {
+                if (!connection.id) connection.id = uuid();
               });
-              break;
+              const content = itemForm.getFieldValue("content") || [];
+              locationForm.setFieldsValue({
+                items: [
+                  ...items,
+                  {
+                    ...values,
+                    content,
+                    connections,
+                    parentId: typeof data === "string" ? data : data.id,
+                  },
+                ],
+              });
             }
-            case "editItemForm": {
-              const { locationForm, editItemForm } = forms;
-              const items = locationForm.getFieldValue("items") || [];
-              const content = editItemForm.getFieldValue("content") || [];
-              const newItems = [...items];
-              newItems[values.index] = {
-                id: values.id,
-                name: values.name,
-                description: values.description,
-                parentId: id,
-                content,
-                connections: values.connections,
-                link: values.link,
-              };
-              locationForm.setFieldsValue({ items: newItems });
-              break;
-            }
-            case "newItemNewContentForm": {
-              const { newItemForm } = forms;
-              const content = newItemForm.getFieldValue("content") || [];
-              newItemForm.setFieldsValue({ content: [...content, values] });
-              break;
-            }
-            case "newItemEditContentForm": {
-              const { newItemForm } = forms;
-              const content = newItemForm.getFieldValue("content") || [];
-              const newContent = [...content];
-              newContent[values.index] = values;
-              newItemForm.setFieldsValue({ content: newContent });
-              break;
-            }
-            case "editItemNewContentForm": {
-              const { editItemForm } = forms;
-              const content = editItemForm.getFieldValue("content") || [];
-              editItemForm.setFieldsValue({ content: [...content, values] });
-              break;
-            }
-            case "editItemEditContentForm": {
-              const { editItemForm } = forms;
-              const content = editItemForm.getFieldValue("content") || [];
-              const newContent = [...content];
-              newContent[values.index] = values;
-              editItemForm.setFieldsValue({ content: newContent });
-              break;
-            }
-            default:
-              null;
-          }
-        }}
-      >
-        <Form name="locationForm" form={form}>
-          <LocationForm
-            id={id}
-            openNewItem={() => setNewItem(true)}
-            openEditItem={(item) => setEditItem(item)}
-          />
-          <Button type="primary" block onClick={form.submit}>
-            Submit
-          </Button>
-        </Form>
-        {newItem && (
-          <Modal
-            title="New Item"
-            visible={true}
-            width={"auto"}
-            style={{ top: 12 }}
-            onCancel={() => setNewItem(false)}
-          >
-            <NewLocationItem id={uuid()} onFinish={() => setNewItem(false)} />
-          </Modal>
-        )}
-        {editItem && (
-          <Modal
-            onCancel={() => setEditItem(undefined)}
-            title="Edit Item"
-            visible={true}
-            width={"auto"}
-            style={{ top: 12, overflow: "auto" }}
-          >
-            <EditLocationItem
-              item={editItem}
-              onFinish={() => setEditItem(undefined)}
-            />
-          </Modal>
-        )}
-      </Form.Provider>
-    </div>
-  );
-}
-
-export function EditLocation({
-  location,
-  updateLocation,
-}: {
-  location: TLocationFormData;
-  updateLocation: (data: TLocationFormData) => void;
-}): JSX.Element {
-  const [form] = Form.useForm();
-
-  const [newItem, setNewItem] = useState(false);
-  const [editItem, setEditItem] = useState<TItemFormData>();
-
-  function submitLocation() {
-    console.log(form.getFieldsValue());
-  }
-
-  return (
-    <div style={{ margin: 8, overflow: "auto" }}>
-      <Title level={3}>Edit Location</Title>
-      <Form.Provider
-        onFormFinish={(name, { values, forms }) => {
-          if (name === "editLocationNewItemForm") {
-            const { locationForm } = forms;
-            const items = locationForm.getFieldValue("items") || [];
-            locationForm.setFieldsValue({ items: [...items, values] });
-          }
-          if (name === "editLocationEditItemForm") {
-            const { locationForm } = forms;
-            const items = locationForm.getFieldValue("items") || [];
-            const newItems = [...items];
-            const { id, name, description, content, connections, link } =
-              values;
-            newItems[values.index] = {
-              id,
-              name,
-              description,
-              content,
-              connections,
-              link,
-            };
-            locationForm.setFieldsValue({ items: newItems });
           }
         }}
       >
         <Form
-          name="newLocationForm"
+          name="locationForm"
           form={form}
-          onFinish={submitLocation}
-          initialValues={location}
+          initialValues={typeof data === "string" ? undefined : data}
         >
-          <LocationForm
-            id={location.id}
-            openNewItem={() => setNewItem(true)}
-            openEditItem={(item) => setEditItem(item)}
+          <Form.Item
+            name="id"
+            initialValue={typeof data === "string" ? data : data.id}
+            hidden
           />
-          <Button type="primary" block onClick={form.submit}>
+          <Space style={{ marginBottom: 16 }}>
+            Id: {typeof data === "string" ? data : data.id}
+          </Space>
+          <Form.Item label="Name" name="name" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item
+            label="Description"
+            name="description"
+            rules={[{ required: true }]}
+          >
+            <TextArea rows={6} />
+          </Form.Item>
+          <Form.Item
+            label="Items"
+            shouldUpdate={(prevValues, curValues) =>
+              prevValues.items !== curValues.items
+            }
+          >
+            {({ getFieldValue, setFieldsValue }) => {
+              const items: TItemForm[] = getFieldValue("items") || [];
+              return items.length ? (
+                <ul>
+                  {items.map((item, index) => (
+                    <li key={index} style={{ marginBottom: 8 }}>
+                      {item.name}
+                      <Button
+                        style={{ marginLeft: 12 }}
+                        icon={<EditOutlined />}
+                        onClick={() => setItemEditor(item)}
+                      />
+                      <Button
+                        style={{ marginLeft: 12 }}
+                        icon={<MinusCircleOutlined />}
+                        onClick={() => {
+                          const newItems = [...items];
+                          newItems.splice(index, 1);
+                          setFieldsValue({ items: newItems });
+                        }}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              ) : null;
+            }}
+          </Form.Item>
+          <Button
+            style={{ marginBottom: 12 }}
+            type="dashed"
+            block
+            icon={<PlusCircleOutlined />}
+            onClick={() => setItemEditor(uuid())}
+          >
+            Add Item
+          </Button>
+          <Button
+            type="primary"
+            block
+            onClick={form.submit}
+            style={{ marginBottom: 16 }}
+          >
             Submit
           </Button>
         </Form>
-        {newItem && (
+        {itemEditor && (
           <Modal
             title="New Item"
             visible={true}
             width={"auto"}
             style={{ top: 12 }}
-            onCancel={() => setNewItem(false)}
+            onCancel={() => setItemEditor(undefined)}
           >
-            <NewLocationItem id={uuid()} onFinish={() => setNewItem(false)} />
-          </Modal>
-        )}
-        {editItem && (
-          <Modal
-            onCancel={() => setEditItem(undefined)}
-            title="Edit Item"
-            visible={true}
-            width={"auto"}
-            style={{ top: 12, overflow: "auto" }}
-          >
-            <EditLocationItem
-              item={editItem}
-              onFinish={() => setEditItem(undefined)}
-              // formName="newLocationEditItemForm"
+            <ItemEditor
+              data={itemEditor}
+              onFinish={() => setItemEditor(undefined)}
             />
           </Modal>
         )}
