@@ -1,106 +1,30 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import React, { useState, useEffect } from "react";
-import firebase from "firebase";
-import { Menu, Layout, Typography, Space, Input } from "antd";
+import React, { useState } from "react";
+import { Menu as AMenu, Space, Input, Typography } from "antd";
 import { PlusSquareOutlined } from "@ant-design/icons";
 import { v4 as uuid } from "uuid";
-// import Menu from "./Menu";
 import { LocationEditor, ItemEditor } from "./Editors";
-import { ForceGraph3D } from "react-force-graph";
-import SpriteText from "three-spritetext";
-import useWindowDims from "./useWindowDims";
 import "antd/dist/antd.css";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBBrOZTRhISAGWaj6JjVm8DTPpzHRT9VRI",
-  authDomain: "assoc-d30ac.firebaseapp.com",
-  databaseURL: "https://assoc-d30ac-default-rtdb.firebaseio.com",
-  projectId: "assoc-d30ac",
-  storageBucket: "assoc-d30ac.appspot.com",
-  messagingSenderId: "341782713355",
-  appId: "1:341782713355:web:bb2c956fcfa4c73f85630e",
-  measurementId: "G-VVME0TLGNG",
-};
-
-const SIDER_WIDTH = 450;
-
-const { Content, Sider } = Layout;
 const { Title } = Typography;
 
-// TODO Form validation
-// TODO Data submitting to FireStore
-// TODO Content preview for images / videos
-// TODO Map interface ?
-
-firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
-
-function App({ filePath }: { filePath: string }): JSX.Element {
-  const [data, setData] = useState<TLocationForm[]>();
-  const [itemLookUp, setItemLookUp] = useState<Record<string, TItemForm>>();
+export default function Menu({
+  data,
+  setData,
+  itemLookUp,
+  updateItemLookUp,
+  selected,
+  setSelected,
+}: {
+  data: TLocationForm[] | undefined;
+  setData: (data: TLocationForm[]) => void;
+  itemLookUp: Record<string, TItemForm> | undefined;
+  updateItemLookUp: (item: TItemForm) => void;
+  selected: string;
+  setSelected: (selected: string) => void;
+}): JSX.Element {
   const [checkItemId, setCheckItemId] = useState("");
-  const [selected, setSelected] = useState<string>("new-location");
-  const windowDims = useWindowDims();
-
-  useEffect(() => {
-    // Load data from firestore and process it to match the Forms
-    if (!data)
-      firebase
-        .firestore()
-        .collection("master")
-        .get()
-        .then(
-          (snapshot) => {
-            const raw: TLocation[] = [];
-            snapshot.forEach((doc) => raw.push(doc.data() as TLocation));
-            const processed = raw.map((location) => ({
-              id: location.id,
-              name: location.name,
-              description: location.description,
-              items: Object.values(location.items).map((item) => ({
-                id: item.id,
-                name: item.name,
-                description: item.description,
-                parentId: item.parentId,
-                connections: Object.values(item.connections),
-                content: item.content.map((content) => {
-                  switch (content.type) {
-                    case "image":
-                      return {
-                        type: content.type,
-                        id: content.id,
-                        name: content.name,
-                        path: `${filePath}/${location.id}/${item.id}/${content.id}.jpg`,
-                      };
-                    case "video":
-                      return {
-                        type: content.type,
-                        id: content.id,
-                        name: content.name,
-                        posterPath: `${filePath}/${location.id}/${item.id}/${content.id}.jpg`,
-                        videoPath: `${filePath}/${location.id}/${item.id}/${content.id}.mp4`,
-                      };
-                    case "map":
-                      return content;
-                  }
-                }),
-                link: item.link,
-              })),
-            }));
-            setData(processed);
-            processed.forEach((location) => {
-              location.items.forEach((item) => updateItemLookUp(item));
-            });
-          },
-          (e) => console.log(e)
-        );
-  });
-
-  function updateItemLookUp(item: TItemForm) {
-    setItemLookUp((prev) => ({
-      ...prev,
-      [item.id]: item,
-    }));
-  }
+  // const [selected, setSelected] = useState<string>("new-location");
 
   function indexOfId(list: { id: string }[], id: string) {
     for (let i = 0; i < list.length; i++) {
@@ -293,45 +217,9 @@ function App({ filePath }: { filePath: string }): JSX.Element {
     }
   }
 
-  function processData(data: TLocationForm[]): {
-    nodes: TNode[];
-    links: TLink[];
-  } {
-    const nodes: TNode[] = [];
-    const links: TLink[] = [];
-    data.forEach((location) => {
-      nodes.push({
-        id: location.id,
-        name: location.name,
-        group: location.id,
-        location: true,
-      });
-      location.items.forEach((item) => {
-        nodes.push({ id: item.id, name: item.name, group: location.id });
-        links.push({
-          source: location.id,
-          target: item.id,
-          group: location.id,
-        });
-        item.connections.forEach((connection) => {
-          if (connection.isSource)
-            links.push({
-              source: item.id,
-              target: connection.partnerId,
-              group: location.id,
-            });
-        });
-      });
-    });
-
-    return { nodes, links };
-  }
-
   function Editor({ selected }: { selected: string }): JSX.Element | null {
     if (selected === "new-location") {
-      return (
-        <LocationEditor filePath={filePath} data={uuid()} submit={updateData} />
-      );
+      return <LocationEditor data={uuid()} submit={updateData} />;
     }
     const index = indexOfId(data!, selected);
     const object = index !== undefined ? data![index] : itemLookUp![selected];
@@ -341,91 +229,38 @@ function App({ filePath }: { filePath: string }): JSX.Element {
     // console.log(object);
     // console.log(itemLookUp);
     if ("items" in object) {
-      return (
-        <LocationEditor filePath={filePath} data={object} submit={updateData} />
-      );
+      return <LocationEditor data={object} submit={updateData} />;
     } else {
       return (
         <div style={{ margin: 8, overflow: "auto" }}>
           <Title level={3}>Edit Item</Title>
-          <ItemEditor filePath={filePath} data={object} submit={updateData} />
+          <ItemEditor data={object} submit={updateData} />
         </div>
       );
     }
   }
 
   return (
-    <Layout style={{ height: "100vh" }}>
-      <Sider
-        width={SIDER_WIDTH}
-        theme="light"
-        style={{ height: "100%", overflow: "auto" }}
-      >
-        {/* <Menu
-          {...{
-            data,
-            setData,
-            itemLookUp,
-            updateItemLookUp,
-            selected,
-            setSelected,
-          }}
-        /> */}
-        <Menu selectable={false}>
-          <Menu.Item
-            icon={<PlusSquareOutlined />}
-            title="new-location"
-            onClick={() => setSelected("new-location")}
-          >
-            New Location
-          </Menu.Item>
-        </Menu>
-        <Space style={{ display: "flex", marginBottom: 8 }} align="baseline">
-          <Input
-            onChange={(event) => setCheckItemId(event.target.value)}
-            value={checkItemId}
-          />
-          {itemLookUp && itemLookUp[checkItemId]
-            ? itemLookUp[checkItemId].name
-            : "N/A"}
-        </Space>
-        {selected ? <Editor selected={selected} /> : null}
-      </Sider>
-      <Layout className="site-layout">
-        <Content style={{ height: "100vh" }}>
-          <ForceGraph3D
-            height={windowDims.height}
-            width={windowDims.width - SIDER_WIDTH}
-            graphData={data ? processData(data) : undefined}
-            nodeAutoColorBy="group"
-            linkDirectionalArrowLength={6.5}
-            linkDirectionalArrowRelPos={0.5}
-            linkCurvature={0}
-            linkWidth={1.15}
-            // Copy the item or location id on right click
-            onNodeRightClick={(node) =>
-              navigator.permissions
-                .query({ name: "clipboard-write" })
-                .then((result) => {
-                  if (result.state == "granted" || result.state == "prompt") {
-                    navigator.clipboard.writeText(`${node.id}`);
-                  }
-                })
-            }
-            onNodeClick={(node) => setSelected(node.id as string)}
-            linkAutoColorBy="group"
-            nodeThreeObject={(node: TNode) => {
-              const sprite = new SpriteText(node.name);
-              sprite.fontWeight = node.location ? "900" : "100";
-              sprite.color = node.color ? node.color : "black";
-              sprite.textHeight = node.location ? 12 : 8;
-              return sprite;
-            }}
-          />
-        </Content>
-      </Layout>
-    </Layout>
+    <>
+      <AMenu selectable={false}>
+        <AMenu.Item
+          icon={<PlusSquareOutlined />}
+          title="new-location"
+          onClick={() => setSelected("new-location")}
+        >
+          New Location
+        </AMenu.Item>
+      </AMenu>
+      <Space style={{ display: "flex", marginBottom: 8 }} align="baseline">
+        <Input
+          onChange={(event) => setCheckItemId(event.target.value)}
+          value={checkItemId}
+        />
+        {itemLookUp && itemLookUp[checkItemId]
+          ? itemLookUp[checkItemId].name
+          : "N/A"}
+      </Space>
+      {selected ? <Editor selected={selected} /> : null}
+    </>
   );
 }
-
-export default App;

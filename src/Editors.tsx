@@ -1,4 +1,6 @@
+/* eslint-disable no-constant-condition */
 import React, { useState } from "react";
+import fs from "fs";
 import { v4 as uuid } from "uuid";
 import {
   Form,
@@ -10,6 +12,8 @@ import {
   Checkbox,
   Modal,
   InputNumber,
+  Upload,
+  message,
 } from "antd";
 import {
   EditOutlined,
@@ -17,18 +21,68 @@ import {
   PlusCircleOutlined,
   UpOutlined,
   DownOutlined,
+  LoadingOutlined,
+  PlusOutlined,
 } from "@ant-design/icons";
 import "antd/dist/antd.css";
+import { RcFile, UploadChangeParam } from "antd/lib/upload";
+import { UploadFile } from "antd/lib/upload/interface";
 
 const { TextArea } = Input;
 const { Title } = Typography;
 
+function ImageUpload(): JSX.Element {
+  const [loading, setLoading] = useState(false);
+
+  function beforeUpload(file: RcFile) {
+    if (file.type !== "image/jpeg") {
+      message.error("Has to be a jpeg buddy");
+      return false;
+    }
+    return true;
+  }
+
+  function handleChange(info: UploadChangeParam<UploadFile>) {
+    console.log("asdfjl");
+    if (info.file.status === "uploading") {
+      setLoading(true);
+      return;
+    }
+    if (info.file.status === "done") {
+      console.log(info.file.originFileObj);
+    }
+  }
+
+  return (
+    <Upload
+      listType="picture-card"
+      showUploadList={false}
+      beforeUpload={beforeUpload}
+      onChange={handleChange}
+      customRequest={(options) => {
+        console.log(options);
+      }}
+    >
+      {false ? (
+        <img src={"blah"} alt="avatar" style={{ width: "100%" }} />
+      ) : (
+        <div>
+          {loading ? <LoadingOutlined /> : <PlusOutlined />}
+          <div style={{ marginTop: 8 }}>Upload</div>
+        </div>
+      )}
+    </Upload>
+  );
+}
+
 function ContentEditor({
   data,
   onFinish,
+  filePath,
 }: {
   data: string | TContentForm;
   onFinish: () => void;
+  filePath: string;
 }) {
   const [form] = Form.useForm();
 
@@ -71,9 +125,10 @@ function ContentEditor({
         <Input />
       </Form.Item>
       {type === "image" && (
-        <Form.Item label="Path" name="path">
-          <Input />
-        </Form.Item>
+        // <Form.Item label="Path" name="path">
+        //   <Input />
+        // </Form.Item>
+        <ImageUpload />
       )}
       {type === "video" && (
         <>
@@ -121,10 +176,12 @@ function ContentEditor({
 
 export function ItemEditor({
   data,
+  filePath,
   onFinish,
   submit,
 }: {
   data: string | TItemForm;
+  filePath: string;
   onFinish?: () => void;
   submit?: (update: TItemForm, prevData: TItemForm) => void;
 }): JSX.Element {
@@ -338,6 +395,7 @@ export function ItemEditor({
         >
           <ContentEditor
             data={contentEditor}
+            filePath={filePath}
             onFinish={() => setContentEditor(undefined)}
           />
         </Modal>
@@ -348,9 +406,11 @@ export function ItemEditor({
 
 export function LocationEditor({
   data,
+  filePath,
   submit,
 }: {
   data: string | TLocationForm;
+  filePath: string;
   submit: (update: TLocationForm, prevData: string | TLocationForm) => void;
 }): JSX.Element {
   const [form] = Form.useForm();
@@ -479,6 +539,7 @@ export function LocationEditor({
           >
             <ItemEditor
               data={itemEditor}
+              filePath={filePath}
               onFinish={() => setItemEditor(undefined)}
             />
           </Modal>
