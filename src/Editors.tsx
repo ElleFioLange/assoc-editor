@@ -126,7 +126,7 @@ export function ItemEditor({
 }: {
   data: string | TItemForm;
   onFinish?: () => void;
-  submit?: (item: TItemForm) => void;
+  submit?: (update: TItemForm, prevData: TItemForm) => void;
 }): JSX.Element {
   const [form] = Form.useForm();
 
@@ -165,7 +165,7 @@ export function ItemEditor({
                 content,
                 parentId: typeof data != "string" ? data.parentId : undefined,
               } as TItemForm;
-              submit(item);
+              if (typeof data !== "string") submit(item, data);
             }
           }
         }
@@ -351,7 +351,7 @@ export function LocationEditor({
   submit,
 }: {
   data: string | TLocationForm;
-  submit: (data: TLocationForm) => void;
+  submit: (update: TLocationForm, prevData: string | TLocationForm) => void;
 }): JSX.Element {
   const [form] = Form.useForm();
 
@@ -369,7 +369,7 @@ export function LocationEditor({
               const { locationForm } = forms;
               const items = locationForm.getFieldValue("items") || [];
               const location = { ...values, items } as TLocationForm;
-              submit(location);
+              submit(location, data);
               break;
             }
             case "itemForm": {

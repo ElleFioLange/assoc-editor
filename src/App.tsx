@@ -30,8 +30,7 @@ const { Title } = Typography;
 firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
 
 function App({ filePath }: { filePath: string }): JSX.Element {
-  const [data, setData] = useState<Record<string, TLocationForm>>();
-  // Using this to access items by id since they are typically stored within their locations
+  const [data, setData] = useState<TLocationForm[]>();
   const [itemLookUp, setItemLookUp] = useState<Record<string, TItemForm>>();
   const [selected, setSelected] = useState<string>("new-location");
   const windowDims = useWindowDims();
@@ -47,152 +46,268 @@ function App({ filePath }: { filePath: string }): JSX.Element {
           (snapshot) => {
             const raw: TLocation[] = [];
             snapshot.forEach((doc) => raw.push(doc.data() as TLocation));
-            const processed: Record<string, TLocationForm> = {};
-            raw.forEach((location) => {
-              processed[location.id] = {
-                id: location.id,
-                name: location.name,
-                description: location.description,
-                items: Object.values(location.items).map((item) => ({
-                  id: item.id,
-                  name: item.name,
-                  description: item.description,
-                  parentId: item.parentId,
-                  connections: Object.values(item.connections),
-                  content: item.content.map((content) => {
-                    switch (content.type) {
-                      case "image":
-                        return {
-                          type: content.type,
-                          id: content.id,
-                          name: content.name,
-                          path: `${filePath}/${location.id}/${item.id}/${content.id}.jpg`,
-                        };
-                      case "video":
-                        return {
-                          type: content.type,
-                          id: content.id,
-                          name: content.name,
-                          posterPath: `${filePath}/${location.id}/${item.id}/${content.id}.jpg`,
-                          videoPath: `${filePath}/${location.id}/${item.id}/${content.id}.mp4`,
-                        };
-                      case "map":
-                        return content;
-                    }
-                  }),
-                  link: item.link,
-                })),
-              };
-            });
+            const processed = raw.map((location) => ({
+              id: location.id,
+              name: location.name,
+              description: location.description,
+              items: Object.values(location.items).map((item) => ({
+                id: item.id,
+                name: item.name,
+                description: item.description,
+                parentId: item.parentId,
+                connections: Object.values(item.connections),
+                content: item.content.map((content) => {
+                  switch (content.type) {
+                    case "image":
+                      return {
+                        type: content.type,
+                        id: content.id,
+                        name: content.name,
+                        path: `${filePath}/${location.id}/${item.id}/${content.id}.jpg`,
+                      };
+                    case "video":
+                      return {
+                        type: content.type,
+                        id: content.id,
+                        name: content.name,
+                        posterPath: `${filePath}/${location.id}/${item.id}/${content.id}.jpg`,
+                        videoPath: `${filePath}/${location.id}/${item.id}/${content.id}.mp4`,
+                      };
+                    case "map":
+                      return content;
+                  }
+                }),
+                link: item.link,
+              })),
+            }));
             setData(processed);
-            Object.values(processed).forEach((location) => {
-              Object.values(location.items).forEach((item) =>
-                updateItemLookUp(item.id, item)
-              );
+            processed.forEach((location) => {
+              location.items.forEach((item) => updateItemLookUp(item));
             });
           },
           (e) => console.log(e)
         );
   });
 
-  function indexOfId(list: { id: string }[], id: string) {
-    const index = list.map((item, index) => {
-      if (item.id === id) return index;
-    });
-    return index[0];
-  }
-
-  function updateItemLookUp(id: string, item: TItemForm) {
+  function updateItemLookUp(item: TItemForm) {
     setItemLookUp((prev) => ({
       ...prev,
-      [id]: item,
+      [item.id]: item,
     }));
   }
 
-  function updateData(update: TLocationForm | TItemForm) {
-    if (data) {
-      const newData = { ...data };
-      if ("items" in update) {
-        newData[update.id] = update;
-        update.items.forEach((item) => updateItemLookUp(item.id, item));
-      } else {
-        const index = indexOfId(newData[update.parentId].items, update.id);
-        if (index != undefined) {
-          newData[update.parentId].items[index] = update;
-        } else {
-          newData[update.parentId].items.push(update);
-        }
+  function indexOfId(list: { id: string }[], id: string) {
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].id === id) {
+        return i;
       }
-      const cleaned = cleanConnections(newData);
-      console.log("after pass");
-      console.log(cleaned);
-      setData(cleaned);
-      // setData(cleanConnections(newData));
     }
+    return undefined;
   }
 
-  // Function for making sure that any connections are on both items
-  function cleanConnections(dirty: Record<string, TLocationForm>) {
-    const cleaned = { ...dirty };
-    Object.values(cleaned).forEach((location) => {
-      location.items.forEach((item) => {
-        console.log(item);
-        Object.values(item.connections).forEach((connection) => {
-          const connectionMirror = {
-            id: connection.id,
-            isSource: !connection.isSource,
-            key: connection.key,
-            partnerId: item.id,
-          };
-          const target = itemLookUp![connection.partnerId];
-          const targetIndex = indexOfId(
-            cleaned[target.parentId].items,
-            target.id
-          );
-          const connectionIndex = indexOfId(
-            target.connections,
-            connectionMirror.id
-          );
-          if (targetIndex != undefined) {
-            if (connectionIndex != undefined) {
-              cleaned[target.parentId].items[targetIndex].connections[
-                connectionIndex
-              ] = connectionMirror;
-            } else {
-              cleaned[target.parentId].items[targetIndex].connections.push(
+  function updateData(
+    update: TLocationForm | TItemForm,
+    prevData: (string | TLocationForm) | TItemForm
+  ) {
+    if (data) {
+      const newData = [...data];
+      if (
+        "items" in update &&
+        typeof prevData !== "string" &&
+        !("connections" in prevData)
+      ) {
+        // Update itemLookUp and sync connections across items
+        update.items.forEach((item) => updateItemLookUp(item));
+        const index = indexOfId(newData, update.id);
+        if (index !== undefined) {
+          newData[index] = update;
+          update.items.forEach((item) => {
+            const prevItemIndex = indexOfId(prevData.items, item.id);
+            const prevConnections = prevItemIndex
+              ? newData[index].items[prevItemIndex!].connections
+              : undefined;
+            console.log({ prevItemIndex, prevConnections });
+            item.connections.forEach((connection) => {
+              if (prevConnections && !prevConnections.includes(connection)) {
+                const partner = itemLookUp![connection.partnerId];
+                const parentIndex = indexOfId(newData, partner.parentId);
+                const parent = newData[parentIndex!];
+                const partnerIndex = indexOfId(parent.items, partner.id);
+                const connectionMirror = {
+                  id: connection.id,
+                  isSource: !connection.isSource,
+                  key: connection.key,
+                  partnerId: item.id,
+                };
+                newData[parentIndex!].items[partnerIndex!].connections.push(
+                  connectionMirror
+                );
+              }
+            });
+            if (prevConnections)
+              prevConnections.forEach((connection) => {
+                if (!item.connections.includes(connection)) {
+                  const partner = itemLookUp![connection.partnerId];
+                  const parentIndex = indexOfId(newData, partner.parentId);
+                  const parent = newData[parentIndex!];
+                  const partnerIndex = indexOfId(parent.items, partner.id);
+                  const connectionIndex = indexOfId(
+                    partner.connections,
+                    connection.id
+                  );
+                  newData[parentIndex!].items[partnerIndex!].connections.splice(
+                    connectionIndex!,
+                    1
+                  );
+                }
+              });
+          });
+          const prevItems = prevData.items;
+          prevItems.forEach((item) => {
+            if (
+              !update.items.map((updateItem) => updateItem.id).includes(item.id)
+            ) {
+              item.connections.forEach((connection) => {
+                const partner = itemLookUp![connection.partnerId];
+                const parentIndex =
+                  indexOfId(newData, partner.parentId) || index;
+                const parent = newData[parentIndex!];
+                const partnerIndex = indexOfId(parent.items, partner.id);
+                const connectionIndex = indexOfId(
+                  partner.connections,
+                  connection.id
+                );
+                newData[parentIndex!].items[partnerIndex!].connections.splice(
+                  connectionIndex!,
+                  1
+                );
+              });
+            }
+          });
+        } else {
+          newData.push(update);
+          // Update item look up and sync connections across items
+          update.items.forEach((item) => {
+            updateItemLookUp(item);
+            item.connections.forEach((connection) => {
+              const partner = itemLookUp![connection.partnerId];
+              const parentIndex = indexOfId(newData, partner.parentId);
+              const parent = newData[parentIndex!];
+              const partnerIndex = indexOfId(parent.items, partner.id);
+              const connectionMirror = {
+                id: connection.id,
+                isSource: !connection.isSource,
+                key: connection.key,
+                partnerId: item.id,
+              };
+              newData[parentIndex!].items[partnerIndex!].connections.push(
+                connectionMirror
+              );
+            });
+          });
+        }
+      } else if (
+        "connections" in update &&
+        typeof prevData !== "string" &&
+        "connections" in prevData
+      ) {
+        updateItemLookUp(update);
+        const parentIndex = indexOfId(newData, update.parentId);
+        const index = indexOfId(newData[parentIndex!].items, update.id);
+        if (index !== undefined) {
+          // console.log(data);
+          newData[parentIndex!].items[index] = update;
+          const prevConnections = prevData.connections;
+          // console.log(data[parentIndex!].items);
+          // console.log(index);
+          // console.log(parentIndex);
+          // console.log(newData);
+          update.connections.forEach((connection) => {
+            if (prevConnections && !prevConnections.includes(connection)) {
+              const partner = itemLookUp![connection.partnerId];
+              const parentIndex = indexOfId(newData, partner.parentId);
+              const parent = newData[parentIndex!];
+              const partnerIndex = indexOfId(parent.items, partner.id);
+              const connectionMirror = {
+                id: connection.id,
+                isSource: !connection.isSource,
+                key: connection.key,
+                partnerId: update.id,
+              };
+              newData[parentIndex!].items[partnerIndex!].connections.push(
                 connectionMirror
               );
             }
-          }
-        });
-      });
-    });
-    console.log("cleaned");
-    console.log(cleaned);
-    return cleaned;
+          });
+          if (prevConnections)
+            prevConnections.forEach((connection) => {
+              if (!update.connections.includes(connection)) {
+                const partner = itemLookUp![connection.partnerId];
+                const parentIndex = indexOfId(newData, partner.parentId);
+                const parent = newData[parentIndex!];
+                const partnerIndex = indexOfId(parent.items, partner.id);
+                const connectionIndex = indexOfId(
+                  partner.connections,
+                  connection.id
+                );
+                console.log({
+                  partnerId: connection.partnerId,
+                  partner,
+                  parentIndex,
+                  parent,
+                  partnerIndex,
+                  connectionIndex,
+                });
+                newData[parentIndex!].items[partnerIndex!].connections.splice(
+                  connectionIndex!,
+                  1
+                );
+              }
+            });
+        } else {
+          newData[parentIndex!].items.push(update);
+          update.connections.forEach((connection) => {
+            const partner = itemLookUp![connection.partnerId];
+            const parentIndex = indexOfId(newData, partner.parentId);
+            const parent = newData[parentIndex!];
+            const partnerIndex = indexOfId(parent.items, partner.id);
+            const connectionMirror = {
+              id: connection.id,
+              isSource: !connection.isSource,
+              key: connection.key,
+              partnerId: update.id,
+            };
+            newData[parentIndex!].items[partnerIndex!].connections.push(
+              connectionMirror
+            );
+          });
+        }
+      }
+      setData(newData);
+    }
   }
 
-  function processData(data: Record<string, TLocationForm>): {
+  function processData(data: TLocationForm[]): {
     nodes: TNode[];
     links: TLink[];
   } {
     const nodes: TNode[] = [];
-    let links: TLink[] = [];
-    Object.values(data).forEach((location) => {
+    const links: TLink[] = [];
+    data.forEach((location) => {
       nodes.push({
         id: location.id,
         name: location.name,
         group: location.id,
         location: true,
       });
-      Object.values(location.items).forEach((item) => {
+      location.items.forEach((item) => {
         nodes.push({ id: item.id, name: item.name, group: location.id });
         links.push({
           source: location.id,
           target: item.id,
           group: location.id,
         });
-        Object.values(item.connections).forEach((connection) => {
+        item.connections.forEach((connection) => {
           if (connection.isSource)
             links.push({
               source: item.id,
@@ -203,36 +318,27 @@ function App({ filePath }: { filePath: string }): JSX.Element {
       });
     });
 
-    links = [...new Set(links)];
-
     return { nodes, links };
   }
 
   function Editor({ selected }: { selected: string }): JSX.Element | null {
     if (selected === "new-location") {
-      return (
-        <LocationEditor
-          data={uuid()}
-          submit={(location: TLocationForm) => updateData(location)}
-        />
-      );
+      return <LocationEditor data={uuid()} submit={updateData} />;
     }
-    const object = data![selected] ? data![selected] : itemLookUp![selected];
+    const index = indexOfId(data!, selected);
+    const object = index !== undefined ? data![index] : itemLookUp![selected];
+    // console.log(index);
+    // console.log(data);
+    // console.log(selected);
+    // console.log(object);
+    // console.log(itemLookUp);
     if ("items" in object) {
-      return (
-        <LocationEditor
-          data={object}
-          submit={(location: TLocationForm) => updateData(location)}
-        />
-      );
+      return <LocationEditor data={object} submit={updateData} />;
     } else {
       return (
         <div style={{ margin: 8, overflow: "auto" }}>
           <Title level={3}>Edit Item</Title>
-          <ItemEditor
-            data={object}
-            submit={(item: TItemForm) => updateData(item)}
-          />
+          <ItemEditor data={object} submit={updateData} />
         </div>
       );
     }
@@ -267,14 +373,18 @@ function App({ filePath }: { filePath: string }): JSX.Element {
             linkCurvature={0}
             linkWidth={1.15}
             // Copy the item or location id on right click
-            onNodeRightClick={(node) =>
-              navigator.permissions
-                .query({ name: "clipboard-write" })
-                .then((result) => {
-                  if (result.state == "granted" || result.state == "prompt") {
-                    navigator.clipboard.writeText(`${node.id}`);
-                  }
-                })
+            onNodeRightClick={
+              (node) => {
+                const index = indexOfId(data![1].items, "auu8acm3ro3qunqwc0");
+                console.log(data![1].items[index!].connections);
+              }
+              // navigator.permissions
+              //   .query({ name: "clipboard-write" })
+              //   .then((result) => {
+              //     if (result.state == "granted" || result.state == "prompt") {
+              //       navigator.clipboard.writeText(`${node.id}`);
+              //     }
+              //   })
             }
             onNodeClick={(node) => setSelected(node.id as string)}
             linkAutoColorBy="group"
