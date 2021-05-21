@@ -58,6 +58,7 @@ type TLocation = {
 };
 
 type TImageForm = {
+  changed: boolean;
   type: "image";
   id: string;
   name: string;
@@ -65,6 +66,7 @@ type TImageForm = {
 };
 
 type TVideoForm = {
+  changed: boolean;
   type: "video";
   id: string;
   name: string;
@@ -73,6 +75,7 @@ type TVideoForm = {
 };
 
 type TMapForm = {
+  changed: boolean;
   type: "map";
   id: string;
   name: string;

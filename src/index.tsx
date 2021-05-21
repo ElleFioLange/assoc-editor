@@ -1,8 +1,31 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import "./index.css";
+import firebase from "firebase";
 import App from "./App";
 import reportWebVitals from "./reportWebVitals";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBBrOZTRhISAGWaj6JjVm8DTPpzHRT9VRI",
+  authDomain: "assoc-d30ac.firebaseapp.com",
+  databaseURL: "https://assoc-d30ac-default-rtdb.firebaseio.com",
+  projectId: "assoc-d30ac",
+  storageBucket: "assoc-d30ac.appspot.com",
+  messagingSenderId: "341782713355",
+  appId: "1:341782713355:web:bb2c956fcfa4c73f85630e",
+  measurementId: "G-VVME0TLGNG",
+};
+
+firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+firebase.firestore().settings({
+  ignoreUndefinedProperties: true,
+});
+firebase
+  .auth()
+  .signInWithEmailAndPassword(
+    "sage.fio.lange@gmail.com",
+    "uncutgemswasafuckingmasterpiece"
+  );
 
 ReactDOM.render(
   <React.StrictMode>

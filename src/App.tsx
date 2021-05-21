@@ -1,8 +1,11 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import React, { useState, useEffect } from "react";
+import fs from "fs";
 import firebase from "firebase";
-import { Menu, Layout, Typography, Space, Input } from "antd";
-import { PlusSquareOutlined } from "@ant-design/icons";
+// import * as firebase from "firebase-admin";
+import Graph from "node-dijkstra";
+import { Menu, Layout, Typography, Space, Input, message } from "antd";
+import { LoadingOutlined, PlusSquareOutlined, UploadOutlined } from "@ant-design/icons";
 import { v4 as uuid } from "uuid";
 // import Menu from "./Menu";
 import { LocationEditor, ItemEditor } from "./Editors";
@@ -11,34 +14,19 @@ import SpriteText from "three-spritetext";
 import useWindowDims from "./useWindowDims";
 import "antd/dist/antd.css";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBBrOZTRhISAGWaj6JjVm8DTPpzHRT9VRI",
-  authDomain: "assoc-d30ac.firebaseapp.com",
-  databaseURL: "https://assoc-d30ac-default-rtdb.firebaseio.com",
-  projectId: "assoc-d30ac",
-  storageBucket: "assoc-d30ac.appspot.com",
-  messagingSenderId: "341782713355",
-  appId: "1:341782713355:web:bb2c956fcfa4c73f85630e",
-  measurementId: "G-VVME0TLGNG",
-};
-
 const SIDER_WIDTH = 450;
 
 const { Content, Sider } = Layout;
 const { Title } = Typography;
 
-// TODO Form validation
-// TODO Data submitting to FireStore
-// TODO Content preview for images / videos
-// TODO Map interface ?
-
-firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+// TODO put parentIDs in the connections so you can actually look up the items
 
 function App({ filePath }: { filePath: string }): JSX.Element {
   const [data, setData] = useState<TLocationForm[]>();
   const [itemLookUp, setItemLookUp] = useState<Record<string, TItemForm>>();
   const [checkItemId, setCheckItemId] = useState("");
   const [selected, setSelected] = useState<string>("new-location");
+  const [uploading, setUploading] = useState(false);
   const windowDims = useWindowDims();
 
   useEffect(() => {
@@ -51,11 +39,11 @@ function App({ filePath }: { filePath: string }): JSX.Element {
         .then(
           (snapshot) => {
             const raw: TLocation[] = [];
-            snapshot.forEach((doc) => raw.push(doc.data() as TLocation));
+            snapshot.forEach((doc) => {
+              raw.push(doc.data() as TLocation);
+            });
             const processed = raw.map((location) => ({
-              id: location.id,
-              name: location.name,
-              description: location.description,
+              ...location,
               items: Object.values(location.items).map((item) => ({
                 id: item.id,
                 name: item.name,
@@ -66,27 +54,32 @@ function App({ filePath }: { filePath: string }): JSX.Element {
                   switch (content.type) {
                     case "image":
                       return {
-                        type: content.type,
-                        id: content.id,
+                        ...content,
+                        changed: false,
                         name: content.name,
-                        path: `${filePath}/${location.id}/${item.id}/${content.id}.jpg`,
+                        path: `${filePath}/${location.id}/${item.id}/${content.id}.jpeg`,
+                        uri: undefined,
                       };
                     case "video":
                       return {
-                        type: content.type,
-                        id: content.id,
-                        name: content.name,
-                        posterPath: `${filePath}/${location.id}/${item.id}/${content.id}.jpg`,
+                        ...content,
+                        changed: false,
+                        posterPath: `${filePath}/${location.id}/${item.id}/${content.id}.jpeg`,
                         videoPath: `${filePath}/${location.id}/${item.id}/${content.id}.mp4`,
+                        uri: undefined,
                       };
                     case "map":
-                      return content;
+                      return {
+                        ...content,
+                        changed: false,
+                        uri: undefined,
+                      };
                   }
                 }),
-                link: item.link,
               })),
             }));
             setData(processed);
+            console.log(processed);
             processed.forEach((location) => {
               location.items.forEach((item) => updateItemLookUp(item));
             });
@@ -354,6 +347,95 @@ function App({ filePath }: { filePath: string }): JSX.Element {
     }
   }
 
+  async function upload() {
+    if (data) {
+      setUploading(true);
+      const graph = new Graph();
+      data.forEach(({ items }) => {
+        items.forEach(({ id, parentId, connections, content }) => {
+          graph.addNode(
+            id,
+            Object.fromEntries(
+              connections.map(({ partnerId }) => [partnerId, 1])
+            )
+          );
+          // Upload all the changed content
+          // Don't worry about deleted content because that probably won't happen too often
+          // For future me, if this causes a problem, sorry but I'm too lazy. You know that.
+          content.forEach(async (contentItem) => {
+            if (contentItem.changed) {
+              switch (contentItem.type) {
+                case "image": {
+                  await firebase
+                    .storage()
+                    .ref(`${filePath}/${parentId}/${id}/${contentItem.id}.jpeg`)
+                    .put(fs.readFileSync(`${filePath}/${parentId}/${id}/${contentItem.id}.jpeg`));
+                  break;
+                }
+                case "video": {
+                  await firebase
+                    .storage()
+                    .ref(`${parentId}/${id}/${contentItem.id}.jpeg`)
+                    .put(fs.readFileSync(`${parentId}/${id}/${contentItem.id}.jpeg`));
+                  await firebase
+                  .storage()
+                  .ref(`${parentId}/${id}/${contentItem.id}.mp4`)
+                  .put(fs.readFileSync(`${parentId}/${id}/${contentItem.id}.mp4`));
+                }
+              }
+            }
+          });
+        });
+      });
+      const uploadData = await Promise.all(data.map(async (location) => [{
+        ...location,
+        items: Object.fromEntries(await Promise.all(location.items.map(async (item) => Promise.resolve([
+          item.id,
+          {
+            ...item,
+            parentName: location.name,
+            connections: Object.fromEntries(
+              item.connections.map((connection) => [
+                connection.id,
+                connection,
+              ])
+            ),
+            content: await Promise.all(item.content.map(async (contentItem) => {
+              switch(contentItem.type) {
+                case "image": {
+                  return {
+                    ...contentItem,
+                    uri: await firebase.storage().ref(`${filePath}/${item.parentId}/${contentItem.id}/${contentItem.id}.jpeg`).getDownloadURL(),
+                    changed: undefined,
+                    path: undefined,
+                  }
+                }
+                case "video": {
+                  return {
+                    ...contentItem,
+                    posterUri: await firebase.storage().ref(`${filePath}/${item.parentId}/${contentItem.id}/${contentItem.id}.jpeg`).getDownloadURL(),
+                    videoUri: await firebase.storage().ref(`${filePath}/${item.parentId}/${contentItem.id}/${contentItem.id}.mp4`).getDownloadURL(),
+                    changed: undefined,
+                    posterPath: undefined,
+                    videoPath: undefined,
+                  }
+                }
+                case "map": {
+                  return {
+                    ...contentItem,
+                    changed: undefined,
+                  }
+                }
+              }
+            })),
+          },
+        ]))))
+      }]));
+      console.log(uploadData);
+      setUploading(false);
+    }
+  }
+
   return (
     <Layout style={{ height: "100vh" }}>
       <Sider
@@ -361,16 +443,6 @@ function App({ filePath }: { filePath: string }): JSX.Element {
         theme="light"
         style={{ height: "100%", overflow: "auto" }}
       >
-        {/* <Menu
-          {...{
-            data,
-            setData,
-            itemLookUp,
-            updateItemLookUp,
-            selected,
-            setSelected,
-          }}
-        /> */}
         <Menu selectable={false}>
           <Menu.Item
             icon={<PlusSquareOutlined />}
@@ -378,6 +450,13 @@ function App({ filePath }: { filePath: string }): JSX.Element {
             onClick={() => setSelected("new-location")}
           >
             New Location
+          </Menu.Item>
+          <Menu.Item
+            icon={uploading ? <LoadingOutlined /> : <UploadOutlined />}
+            title="upload"
+            onClick={upload}
+          >
+            Upload
           </Menu.Item>
         </Menu>
         <Space style={{ display: "flex", marginBottom: 8 }} align="baseline">
@@ -409,6 +488,7 @@ function App({ filePath }: { filePath: string }): JSX.Element {
                 .then((result) => {
                   if (result.state == "granted" || result.state == "prompt") {
                     navigator.clipboard.writeText(`${node.id}`);
+                    message.success(node.id);
                   }
                 })
             }

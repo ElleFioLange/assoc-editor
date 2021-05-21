@@ -6,6 +6,7 @@
   "private": true,
   "dependencies": {
     "@ant-design/icons": "^4.6.2",
+    "@firebase/app": "^0.6.22",
     "@testing-library/jest-dom": "^5.11.4",
     "@testing-library/react": "^11.1.0",
     "@testing-library/user-event": "^12.1.10",
@@ -15,8 +16,10 @@
     "@types/react-dom": "^17.0.0",
     "antd": "^4.15.5",
     "electron-is-dev": "^2.0.0",
-    "firebase": "^8.6.1",
-    "firebase-admin": "^9.8.0",
+    "firebase": "^8.6.2",
+    "google-maps-react": "^2.0.6",
+    "jquery": "^3.6.0",
+    "node-dijkstra": "^2.5.0",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
     "react-force-graph": "^1.41.3",
@@ -57,6 +60,7 @@
     ]
   },
   "devDependencies": {
+    "@types/node-dijkstra": "^2.5.1",
     "@typescript-eslint/eslint-plugin": "^4.23.0",
     "@typescript-eslint/parser": "^4.23.0",
     "concurrently": "^6.1.0",
