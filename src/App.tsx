@@ -5,7 +5,11 @@ import firebase from "firebase";
 // import * as firebase from "firebase-admin";
 import Graph from "node-dijkstra";
 import { Menu, Layout, Typography, Space, Input, message } from "antd";
-import { LoadingOutlined, PlusSquareOutlined, UploadOutlined } from "@ant-design/icons";
+import {
+  LoadingOutlined,
+  PlusSquareOutlined,
+  UploadOutlined,
+} from "@ant-design/icons";
 import { v4 as uuid } from "uuid";
 // import Menu from "./Menu";
 import { LocationEditor, ItemEditor } from "./Editors";
@@ -369,68 +373,122 @@ function App({ filePath }: { filePath: string }): JSX.Element {
                   await firebase
                     .storage()
                     .ref(`${filePath}/${parentId}/${id}/${contentItem.id}.jpeg`)
-                    .put(fs.readFileSync(`${filePath}/${parentId}/${id}/${contentItem.id}.jpeg`));
+                    .put(
+                      fs.readFileSync(
+                        `${filePath}/${parentId}/${id}/${contentItem.id}.jpeg`
+                      )
+                    );
                   break;
                 }
                 case "video": {
                   await firebase
                     .storage()
                     .ref(`${parentId}/${id}/${contentItem.id}.jpeg`)
-                    .put(fs.readFileSync(`${parentId}/${id}/${contentItem.id}.jpeg`));
+                    .put(
+                      fs.readFileSync(
+                        `${parentId}/${id}/${contentItem.id}.jpeg`
+                      )
+                    );
                   await firebase
-                  .storage()
-                  .ref(`${parentId}/${id}/${contentItem.id}.mp4`)
-                  .put(fs.readFileSync(`${parentId}/${id}/${contentItem.id}.mp4`));
+                    .storage()
+                    .ref(`${parentId}/${id}/${contentItem.id}.mp4`)
+                    .put(
+                      fs.readFileSync(`${parentId}/${id}/${contentItem.id}.mp4`)
+                    );
                 }
               }
             }
           });
         });
       });
-      const uploadData = await Promise.all(data.map(async (location) => [{
-        ...location,
-        items: Object.fromEntries(await Promise.all(location.items.map(async (item) => Promise.resolve([
-          item.id,
+      const uploadData = await Promise.all(
+        data.map(async (location) => [
           {
-            ...item,
-            parentName: location.name,
-            connections: Object.fromEntries(
-              item.connections.map((connection) => [
-                connection.id,
-                connection,
+            ...location,
+            items: Object.fromEntries(
+              await Promise.all(
+                location.items.map(async (item) =>
+                  Promise.resolve([
+                    item.id,
+                    {
+                      ...item,
+                      parentName: location.name,
+                      connections: Object.fromEntries(
+                        item.connections.map((connection) => [
+                          connection.id,
+                          connection,
+                        ])
+                      ),
+                      content: await Promise.all(
+                        item.content.map(async (contentItem) => {
+                          switch (contentItem.type) {
+                            case "image": {
+                              return {
+                                ...contentItem,
+                                uri: await firebase
+                                  .storage()
+                                  .ref(
+                                    `${filePath}/${item.parentId}/${contentItem.id}/${contentItem.id}.jpeg`
+                                  )
+                                  .getDownloadURL(),
+                                changed: undefined,
+                                path: undefined,
+                              };
+                            }
+                            case "video": {
+                              return {
+                                ...contentItem,
+                                posterUri: await firebase
+                                  .storage()
+                                  .ref(
+                                    `${filePath}/${item.parentId}/${contentItem.id}/${contentItem.id}.jpeg`
+                                  )
+                                  .getDownloadURL(),
+                                videoUri: await firebase
+                                  .storage()
+                                  .ref(
+                                    `${filePath}/${item.parentId}/${contentItem.id}/${contentItem.id}.mp4`
+                                  )
+                                  .getDownloadURL(),
+                                changed: undefined,
+                                posterPath: undefined,
+                                videoPath: undefined,
+                              };
+                            }
+                            case "map": {
+                              return {
+                                ...contentItem,
+                                changed: undefined,
+                              };
+                            }
+                          }
+                        })
+                      ),
+                    },
+                  ])
+                )
+              )
+            ),
+            minD: Object.fromEntries(
+              data.map((otherLocation) => [
+                otherLocation.id,
+                location.id === otherLocation.id
+                  ? 0
+                  : Math.min(
+                      ...location.items.map((item) =>
+                        Math.min(
+                          ...otherLocation.items.map(
+                            (otherItem) =>
+                              graph.path(item.id, otherItem.id).length - 1
+                          )
+                        )
+                      )
+                    ),
               ])
             ),
-            content: await Promise.all(item.content.map(async (contentItem) => {
-              switch(contentItem.type) {
-                case "image": {
-                  return {
-                    ...contentItem,
-                    uri: await firebase.storage().ref(`${filePath}/${item.parentId}/${contentItem.id}/${contentItem.id}.jpeg`).getDownloadURL(),
-                    changed: undefined,
-                    path: undefined,
-                  }
-                }
-                case "video": {
-                  return {
-                    ...contentItem,
-                    posterUri: await firebase.storage().ref(`${filePath}/${item.parentId}/${contentItem.id}/${contentItem.id}.jpeg`).getDownloadURL(),
-                    videoUri: await firebase.storage().ref(`${filePath}/${item.parentId}/${contentItem.id}/${contentItem.id}.mp4`).getDownloadURL(),
-                    changed: undefined,
-                    posterPath: undefined,
-                    videoPath: undefined,
-                  }
-                }
-                case "map": {
-                  return {
-                    ...contentItem,
-                    changed: undefined,
-                  }
-                }
-              }
-            })),
           },
-        ]))))
-      }]));
+        ])
+      );
       console.log(uploadData);
       setUploading(false);
     }
