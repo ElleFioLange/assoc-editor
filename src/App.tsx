@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
+<<<<<<< HEAD
 import React, { useState, useEffect } from "react";
 import fs from "fs";
+=======
+import React, { useState, useEffect, useRef } from "react";
+const fs = window.require("fs");
+>>>>>>> 73291f6 (added getting dims to the video content form)
 import firebase from "firebase";
 // import * as firebase from "firebase-admin";
 import Graph from "node-dijkstra";
@@ -27,11 +32,14 @@ const { Title } = Typography;
 
 function App({ filePath }: { filePath: string }): JSX.Element {
   const [data, setData] = useState<TLocationForm[]>();
+  const [initialData, setInitialData] = useState<TLocationForm[]>();
   const [itemLookUp, setItemLookUp] = useState<Record<string, TItemForm>>();
   const [checkItemId, setCheckItemId] = useState("");
   const [selected, setSelected] = useState<string>("new-location");
   const [uploading, setUploading] = useState(false);
   const windowDims = useWindowDims();
+
+  const pathRef = useRef<Input>(null);
 
   useEffect(() => {
     // Load data from firestore and process it to match the Forms
@@ -83,7 +91,11 @@ function App({ filePath }: { filePath: string }): JSX.Element {
               })),
             }));
             setData(processed);
+<<<<<<< HEAD
             console.log(processed);
+=======
+            setInitialData(processed);
+>>>>>>> 73291f6 (added getting dims to the video content form)
             processed.forEach((location) => {
               location.items.forEach((item) => updateItemLookUp(item));
             });
@@ -114,15 +126,20 @@ function App({ filePath }: { filePath: string }): JSX.Element {
   ) {
     if (data) {
       const newData = [...data];
-      if (
-        "items" in update &&
-        typeof prevData !== "string" &&
-        !("connections" in prevData)
-      ) {
+      if ("items" in update) {
         // Update itemLookUp and sync connections across items
         update.items.forEach((item) => updateItemLookUp(item));
         const index = indexOfId(newData, update.id);
+<<<<<<< HEAD
         if (index !== undefined) {
+=======
+        if (
+          index !== undefined &&
+          typeof prevData !== "string" &&
+          "items" in prevData
+        ) {
+          // If the location already existed, then check for new and deleted connections
+>>>>>>> 73291f6 (added getting dims to the video content form)
           newData[index] = update;
           update.items.forEach((item) => {
             const prevItemIndex = indexOfId(prevData.items, item.id);
@@ -189,7 +206,11 @@ function App({ filePath }: { filePath: string }): JSX.Element {
           });
         } else {
           newData.push(update);
+<<<<<<< HEAD
           // Update item look up and sync connections across items
+=======
+          // If the location is new then just add all connections to their partners
+>>>>>>> 73291f6 (added getting dims to the video content form)
           update.items.forEach((item) => {
             updateItemLookUp(item);
             item.connections.forEach((connection) => {
@@ -209,6 +230,7 @@ function App({ filePath }: { filePath: string }): JSX.Element {
             });
           });
         }
+<<<<<<< HEAD
       } else if (
         "connections" in update &&
         typeof prevData !== "string" &&
@@ -219,6 +241,19 @@ function App({ filePath }: { filePath: string }): JSX.Element {
         const index = indexOfId(newData[parentIndex!].items, update.id);
         if (index !== undefined) {
           // console.log(data);
+=======
+      } else {
+        // Update itemLookUp and check for new and deleted connections
+        updateItemLookUp(update);
+        const parentIndex = indexOfId(newData, update.parentId);
+        const index = indexOfId(newData[parentIndex!].items, update.id);
+        if (
+          index !== undefined &&
+          typeof prevData !== "string" &&
+          "connections" in prevData
+        ) {
+          // If the item already existed, then check for new and deleted connections
+>>>>>>> 73291f6 (added getting dims to the video content form)
           newData[parentIndex!].items[index] = update;
           const prevConnections = prevData.connections;
           // console.log(data[parentIndex!].items);
@@ -354,11 +389,18 @@ function App({ filePath }: { filePath: string }): JSX.Element {
   }
 
   async function upload() {
-    if (data) {
+    if (data && initialData) {
       setUploading(true);
       const graph = new Graph();
+<<<<<<< HEAD
       data.forEach(({ items }) => {
         items.forEach(({ id, parentId, connections, content }) => {
+=======
+      // Go over every item
+      for (const { items } of data) {
+        for (const { id, parentId, connections, content } of items) {
+          // Add all the nodes so for dijkstras
+>>>>>>> 73291f6 (added getting dims to the video content form)
           graph.addNode(
             id,
             Object.fromEntries(
@@ -366,15 +408,13 @@ function App({ filePath }: { filePath: string }): JSX.Element {
             )
           );
           // Upload all the changed content
-          // Don't worry about deleted content because that probably won't happen too often
-          // For future me, if this causes a problem, sorry but I'm too lazy. You know that.
-          content.forEach(async (contentItem) => {
+          for (const contentItem of content) {
             if (contentItem.changed) {
               switch (contentItem.type) {
                 case "image": {
                   await firebase
                     .storage()
-                    .ref(`${filePath}/${parentId}/${id}/${contentItem.id}.jpeg`)
+                    .ref(`${parentId}/${id}/${contentItem.id}.jpeg`)
                     .put(
                       fs.readFileSync(
                         `${filePath}/${parentId}/${id}/${contentItem.id}.jpeg`
@@ -388,22 +428,56 @@ function App({ filePath }: { filePath: string }): JSX.Element {
                     .ref(`${parentId}/${id}/${contentItem.id}.jpeg`)
                     .put(
                       fs.readFileSync(
-                        `${parentId}/${id}/${contentItem.id}.jpeg`
+                        `${filePath}/${parentId}/${id}/${contentItem.id}.jpeg`
                       )
                     );
                   await firebase
                     .storage()
                     .ref(`${parentId}/${id}/${contentItem.id}.mp4`)
                     .put(
-                      fs.readFileSync(`${parentId}/${id}/${contentItem.id}.mp4`)
+                      fs.readFileSync(
+                        `${filePath}/${parentId}/${id}/${contentItem.id}.mp4`
+                      )
                     );
                 }
               }
             }
-          });
-        });
-      });
+          }
+          // Delete the deleted content
+          const initLocationIdx = indexOfId(initialData, parentId);
+          const initLocation = initLocationIdx
+            ? initialData[initLocationIdx]
+            : undefined;
+          const initItemIdx = initLocation
+            ? indexOfId(initLocation.items, id)
+            : undefined;
+          const initItem =
+            initLocation && initItemIdx
+              ? initLocation.items[initItemIdx]
+              : undefined;
+          if (initItem)
+            for (const contentItem of initItem.content) {
+              if (!content.map((c) => c.id).includes(contentItem.id)) {
+                await firebase
+                  .storage()
+                  .ref(`${parentId}/${id}/${contentItem.id}`)
+                  .delete();
+              }
+            }
+        }
+      }
+      // Delete all deleted locations
+      for (const location of initialData) {
+        if (!data.map((l) => l.id).includes(location.id)) {
+          await firebase
+            .firestore()
+            .collection("master")
+            .doc(location.id)
+            .delete();
+        }
+      }
       const uploadData = await Promise.all(
+<<<<<<< HEAD
         data.map(async (location) => [
           {
             ...location,
@@ -463,35 +537,104 @@ function App({ filePath }: { filePath: string }): JSX.Element {
                                 changed: undefined,
                               };
                             }
+=======
+        data.map(async (location) => ({
+          ...location,
+          items: Object.fromEntries(
+            await Promise.all(
+              location.items.map(async (item) =>
+                Promise.resolve([
+                  item.id,
+                  {
+                    ...item,
+                    parentName: location.name,
+                    connections: Object.fromEntries(
+                      item.connections.map((connection) => [
+                        connection.id,
+                        {
+                          ...connection,
+                          parentId: itemLookUp![connection.partnerId].parentId,
+                        },
+                      ])
+                    ),
+                    content: await Promise.all(
+                      item.content.map(async (contentItem) => {
+                        switch (contentItem.type) {
+                          case "image": {
+                            return {
+                              ...contentItem,
+                              uri: await firebase
+                                .storage()
+                                .ref(
+                                  `${item.parentId}/${item.id}/${contentItem.id}.jpeg`
+                                )
+                                .getDownloadURL(),
+                              changed: undefined,
+                              path: undefined,
+                            };
                           }
-                        })
-                      ),
-                    },
-                  ])
-                )
+                          case "video": {
+                            return {
+                              ...contentItem,
+                              posterUri: await firebase
+                                .storage()
+                                .ref(
+                                  `${item.parentId}/${item.id}/${contentItem.id}.jpeg`
+                                )
+                                .getDownloadURL(),
+                              videoUri: await firebase
+                                .storage()
+                                .ref(
+                                  `${item.parentId}/${item.id}/${contentItem.id}.mp4`
+                                )
+                                .getDownloadURL(),
+                              changed: undefined,
+                              posterPath: undefined,
+                              videoPath: undefined,
+                            };
+>>>>>>> 73291f6 (added getting dims to the video content form)
+                          }
+                          case "map": {
+                            return {
+                              ...contentItem,
+                              changed: undefined,
+                            };
+                          }
+                        }
+                      })
+                    ),
+                  },
+                ])
               )
-            ),
-            minD: Object.fromEntries(
-              data.map((otherLocation) => [
-                otherLocation.id,
-                location.id === otherLocation.id
-                  ? 0
-                  : Math.min(
-                      ...location.items.map((item) =>
-                        Math.min(
-                          ...otherLocation.items.map(
-                            (otherItem) =>
-                              graph.path(item.id, otherItem.id).length - 1
-                          )
+            )
+          ),
+          minD: Object.fromEntries(
+            data.map((otherLocation) => [
+              otherLocation.id,
+              location.id === otherLocation.id
+                ? 0
+                : Math.min(
+                    ...location.items.map((item) =>
+                      Math.min(
+                        ...otherLocation.items.map(
+                          (otherItem) =>
+                            graph.path(item.id, otherItem.id).length - 1
                         )
                       )
-                    ),
-              ])
-            ),
-          },
-        ])
+                    )
+                  ),
+            ])
+          ),
+        }))
       );
       console.log(uploadData);
+      for (const location of uploadData) {
+        await firebase
+          .firestore()
+          .collection("master")
+          .doc(location.id)
+          .set(location);
+      }
       setUploading(false);
     }
   }
@@ -528,6 +671,16 @@ function App({ filePath }: { filePath: string }): JSX.Element {
             ? itemLookUp[checkItemId].name
             : "N/A"}
         </Space>
+<<<<<<< HEAD
+=======
+        <Space style={{ display: "flex", marginBottom: 8 }} align="baseline">
+          <Input
+            ref={pathRef}
+            style={{ width: 450 }}
+            onPressEnter={() => setFilePath(pathRef?.current?.state.value)}
+          />
+        </Space>
+>>>>>>> 73291f6 (added getting dims to the video content form)
         {selected ? <Editor selected={selected} /> : null}
       </Sider>
       <Layout className="site-layout">

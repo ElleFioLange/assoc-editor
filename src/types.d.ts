@@ -13,10 +13,12 @@ type TVideo = {
   type: "video";
   id: string;
   name: string;
-  videoUri: string;
   posterUri: string;
-  w: number;
-  h: number;
+  posterW: number;
+  posterH: number;
+  videoUri: string;
+  videoW: number;
+  videoH: number;
 };
 
 type TMap = {
@@ -73,9 +75,11 @@ type TVideoForm = {
   id: string;
   name: string;
   posterPath: string;
+  posterW: number;
+  posterH: number;
   videoPath: string;
-  w: number;
-  h: number;
+  videoW: number;
+  videoH: number;
 };
 
 type TMapForm = {

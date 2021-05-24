@@ -1,6 +1,8 @@
 /* eslint-disable no-constant-condition */
 import React, { useState } from "react";
 const fs = window.require("fs");
+const ffprobe = window.require("ffprobe");
+const ffprobeStatic = window.require("ffprobe-static");
 import { v4 as uuid } from "uuid";
 import {
   Form,
@@ -11,9 +13,7 @@ import {
   Typography,
   Checkbox,
   Modal,
-  message,
   Upload,
-  UploadProps,
   InputNumber,
 } from "antd";
 import Map from "./Map";
@@ -26,7 +26,6 @@ import {
   ClockCircleOutlined,
   ClockCircleFilled,
   InboxOutlined,
-  BorderInnerOutlined,
 } from "@ant-design/icons";
 import "antd/dist/antd.css";
 import { mapEventHandler } from "google-maps-react";
@@ -61,27 +60,45 @@ function ContentEditor({
     form.setFieldsValue({ type });
   }
 
-  const uploadFile: UploadProps["customRequest"] = async ({ file }) => {
+  const uploadFile = async (
+    file: string | Blob | RcFile,
+    uploadType: "image" | "poster" | "video"
+  ) => {
+    fs.mkdirSync(filePath, { recursive: true });
     const fr = new FileReader();
 
-    fr.onload = function () {
-      // file is loaded
-      const img = new Image();
+    if (uploadType === "image" || uploadType === "poster") {
+      fs.writeFileSync(
+        `${path}.jpeg`,
+        Buffer.from(await (file as Blob).arrayBuffer())
+      );
+      fr.onload = function () {
+        // file is loaded
+        const img = new Image();
+        img.onload = function () {
+          form.setFieldsValue(
+            uploadType === "image"
+              ? { w: img.width, h: img.height }
+              : { posterW: img.width, posterH: img.height }
+          );
+        };
 
-      img.onload = function () {
-        form.setFieldsValue({ w: img.width, h: img.height });
+        img.onerror = (e) => console.error(e);
+
+        img.src = fr.result as string; // is the data URL because called with readAsDataURL
       };
-
-      img.onerror = (e) => console.error(e);
-
-      img.src = fr.result as string; // is the data URL because called with readAsDataURL
-    };
-
+    } else {
+      fs.writeFileSync(
+        `${path}.mp4`,
+        Buffer.from(await (file as Blob).arrayBuffer())
+      );
+      fr.onload = async function () {
+        const info = await ffprobe(`${path}.mp4`, { path: ffprobeStatic.path });
+        const { width, height } = info.streams[0];
+        form.setFieldsValue({ videoW: width, videoH: height });
+      };
+    }
     fr.readAsDataURL(file as Blob);
-    fs.writeFileSync(
-      `${path}.jpeg`,
-      Buffer.from(await (file as Blob).arrayBuffer())
-    );
   };
 
   const onMapClick: mapEventHandler = (_, __, event) => {
@@ -150,7 +167,7 @@ function ContentEditor({
           <Dragger
             multiple={false}
             showUploadList={false}
-            customRequest={uploadFile}
+            customRequest={({ file }) => uploadFile(file, "image")}
             beforeUpload={(file) => file.type === "image/jpeg"}
             style={{ maxWidth: 480, height: 240, marginBottom: 16 }}
           >
@@ -173,6 +190,31 @@ function ContentEditor({
             Poster Path:{" "}
             {`${filePath}/${typeof data === "string" ? data : data.id}.jpeg`}
           </Space>
+          Width:{" "}
+          <Form.Item
+            name="posterW"
+            shouldUpdate={(prev, cur) => prev.posterW !== cur.posterW}
+          >
+            <Input disabled />
+          </Form.Item>
+          Height:{" "}
+          <Form.Item
+            name="posterH"
+            shouldUpdate={(prev, cur) => prev.posterH !== cur.posterH}
+          >
+            <Input disabled />
+          </Form.Item>
+          <Dragger
+            multiple={false}
+            showUploadList={false}
+            customRequest={({ file }) => uploadFile(file, "poster")}
+            beforeUpload={(file) => file.type === "image/jpeg"}
+            style={{ maxWidth: 480, height: 240, marginBottom: 16 }}
+          >
+            <p className="ant-upload-drag-icon">
+              <InboxOutlined />
+            </p>
+          </Dragger>
           <Form.Item
             hidden
             name="videoPath"
@@ -184,6 +226,7 @@ function ContentEditor({
             Video Path:{" "}
             {`${filePath}/${typeof data === "string" ? data : data.id}.mp4`}
           </Space>
+<<<<<<< HEAD
           <Form.Item name="w" hidden />
           <Space style={{ marginBottom: 16 }}>
             Width: {form.getFieldValue("w")}
@@ -194,22 +237,33 @@ function ContentEditor({
           </Space>
           {/* <Upload.Dragger
             customRequest={getDims}
-            showUploadList={false}
-            beforeUpload={(file) => {
-              if (file.type !== "image/jpeg") {
-                message.error(
-                  "WRONG FILE TYPE BUDDY STOP TRYING ME HAS TO BE A JPEG BC UR SO LAZY"
-                );
-                return false;
-              }
-              return true;
-            }}
-            style={{ marginBottom: 16 }}
+=======
+          Width:{" "}
+          <Form.Item
+            name="videoW"
+            shouldUpdate={(prev, cur) => prev.posterH !== cur.posterH}
           >
-            <Button icon={<BorderInnerOutlined />} style={{ marginBottom: 16 }}>
-              Get Dimensions
-            </Button>
-          </Upload.Dragger> */}
+            <Input disabled />
+          </Form.Item>
+          Height:{" "}
+          <Form.Item
+            name="videoH"
+            shouldUpdate={(prev, cur) => prev.videoH !== cur.videoH}
+          >
+            <Input disabled />
+          </Form.Item>
+          <Dragger
+            multiple={false}
+>>>>>>> 73291f6 (added getting dims to the video content form)
+            showUploadList={false}
+            customRequest={({ file }) => uploadFile(file, "video")}
+            beforeUpload={(file) => file.type === "video/mp4"}
+            style={{ maxWidth: 480, height: 240, marginBottom: 16 }}
+          >
+            <p className="ant-upload-drag-icon">
+              <InboxOutlined />
+            </p>
+          </Dragger>
         </>
       )}
       {type === "map" && (
@@ -293,9 +347,14 @@ export function ItemEditor({
           case "contentForm": {
             const { itemForm } = forms;
             const content = itemForm.getFieldValue("content") || [];
+<<<<<<< HEAD
             console.log(content);
             const index = content.getIndexOf(values);
             if (index === -1)
+=======
+            const index = indexOfId(content, values.id);
+            if (index === undefined)
+>>>>>>> 73291f6 (added getting dims to the video content form)
               itemForm.setFieldsValue({
                 content: [...content, values],
               });
