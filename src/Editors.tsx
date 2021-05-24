@@ -61,7 +61,7 @@ function ContentEditor({
     form.setFieldsValue({ type });
   }
 
-  const uploadFile: UploadProps["customRequest"] = ({ file }) => {
+  const uploadFile: UploadProps["customRequest"] = async ({ file }) => {
     const fr = new FileReader();
 
     fr.onload = function () {
@@ -69,7 +69,7 @@ function ContentEditor({
       const img = new Image();
 
       img.onload = function () {
-        alert(img.width); // image is loaded; sizes are available
+        form.setFieldsValue({ w: img.width, h: img.height });
       };
 
       img.onerror = (e) => console.error(e);
@@ -78,6 +78,10 @@ function ContentEditor({
     };
 
     fr.readAsDataURL(file as Blob);
+    fs.writeFileSync(
+      `${path}.jpeg`,
+      Buffer.from(await (file as Blob).arrayBuffer())
+    );
   };
 
   const onMapClick: mapEventHandler = (_, __, event) => {
@@ -135,24 +139,14 @@ function ContentEditor({
           <Space style={{ marginBottom: 16, display: "block" }}>
             Path: {`${path}.jpeg`}
           </Space>
-          <Form.Item hidden name="w" />
-          <Space style={{ marginBottom: 16, display: "block" }}>
-            Width:{" "}
-            {form.getFieldValue("w") || typeof data === "string"
-              ? "Unset"
-              : data.type === "image"
-              ? data.w
-              : "Unset"}
-          </Space>
-          <Form.Item hidden name="h" />
-          <Space style={{ marginBottom: 16, display: "block" }}>
-            Height:{" "}
-            {form.getFieldValue("h") || typeof data === "string"
-              ? "Unset"
-              : data.type === "image"
-              ? data.h
-              : "Unset"}
-          </Space>
+          Width:{" "}
+          <Form.Item name="w" shouldUpdate={(prev, cur) => prev.w !== cur.w}>
+            <Input disabled />
+          </Form.Item>
+          Height:{" "}
+          <Form.Item name="h" shouldUpdate={(prev, cur) => prev.h !== cur.h}>
+            <Input disabled />
+          </Form.Item>
           <Dragger
             multiple={false}
             showUploadList={false}
