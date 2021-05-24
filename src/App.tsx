@@ -290,6 +290,8 @@ function App({ filePath }: { filePath: string }): JSX.Element {
     }
   }
 
+  console.log(data);
+
   function processData(data: TLocationForm[]): {
     nodes: TNode[];
     links: TLink[];

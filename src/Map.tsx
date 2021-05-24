@@ -10,10 +10,6 @@ export class MapContainer extends Component<IMapProps & { mapDim: number }> {
           height: this.props.mapDim,
           width: this.props.mapDim,
         }}
-        initialCenter={{
-          lat: 35.10955714631318,
-          lng: -106.61210092788741,
-        }}
       />
     );
   }

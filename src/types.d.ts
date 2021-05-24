@@ -63,6 +63,8 @@ type TImageForm = {
   id: string;
   name: string;
   path: string;
+  w: number;
+  h: number;
 };
 
 type TVideoForm = {
@@ -72,6 +74,8 @@ type TVideoForm = {
   name: string;
   posterPath: string;
   videoPath: string;
+  w: number;
+  h: number;
 };
 
 type TMapForm = {

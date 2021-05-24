@@ -1,5 +1,6 @@
 /* eslint-disable no-constant-condition */
 import React, { useState } from "react";
+const fs = window.require("fs");
 import { v4 as uuid } from "uuid";
 import {
   Form,
@@ -24,15 +25,19 @@ import {
   DownOutlined,
   ClockCircleOutlined,
   ClockCircleFilled,
+  InboxOutlined,
   BorderInnerOutlined,
 } from "@ant-design/icons";
 import "antd/dist/antd.css";
 import { mapEventHandler } from "google-maps-react";
+import indexOfId from "./indexOfId";
+import { RcFile } from "antd/lib/upload";
 
 const MAP_DIM = 450;
 
 const { TextArea } = Input;
 const { Title } = Typography;
+const { Dragger } = Upload;
 
 function ContentEditor({
   data,
@@ -44,28 +49,36 @@ function ContentEditor({
   filePath: string;
 }) {
   const [form] = Form.useForm();
-  console.log(data);
 
   const [type, setType] = useState<ContentType>(
     typeof data === "string" ? "image" : data.type
   );
+
+  const path = `${filePath}/${typeof data === "string" ? data : data.id}`;
 
   function updateType(type: ContentType) {
     setType(type);
     form.setFieldsValue({ type });
   }
 
-  const getDims: UploadProps["customRequest"] = (e) => {
-    const fr = new FileReader;
-    fr.onload = function() { // file is loaded
-        const img = new Image;
-        img.onload = function() {
-          form.setFieldsValue({ w: img.width, h: img.height });
-        };
-        img.src = fr.result as string; // is the data URL because called with readAsDataURL
+  const uploadFile: UploadProps["customRequest"] = ({ file }) => {
+    const fr = new FileReader();
+
+    fr.onload = function () {
+      // file is loaded
+      const img = new Image();
+
+      img.onload = function () {
+        alert(img.width); // image is loaded; sizes are available
+      };
+
+      img.onerror = (e) => console.error(e);
+
+      img.src = fr.result as string; // is the data URL because called with readAsDataURL
     };
-    fr.readAsDataURL(e.file as Blob);
-  }
+
+    fr.readAsDataURL(file as Blob);
+  };
 
   const onMapClick: mapEventHandler = (_, __, event) => {
     form.setFieldsValue({ lat: event.latLng.lat(), lon: event.latLng.lng() });
@@ -87,18 +100,12 @@ function ContentEditor({
       form={form}
       layout="vertical"
       name="contentForm"
-      initialValues={typeof data === "string" ? undefined : data}
+      initialValues={
+        typeof data === "string" ? { id: data, changed: true } : data
+      }
     >
-      <Form.Item
-        name="id"
-        initialValue={typeof data === "string" ? data : data.id}
-        hidden
-      />
-      <Form.Item
-        name="id"
-        initialValue={typeof data === "string" ? true : false}
-        hidden
-      />
+      <Form.Item name="id" hidden />
+      <Form.Item name="changed" hidden />
       <Space style={{ marginBottom: 16, display: "block" }}>
         Id: {typeof data === "string" ? data : data.id}
       </Space>
@@ -125,33 +132,38 @@ function ContentEditor({
               typeof data === "string" ? data : data.id
             }.jpeg`}
           />
-          <Space style={{ marginBottom: 16 }}>
-            Path:{" "}
-            {`${filePath}/${typeof data === "string" ? data : data.id}.jpeg`}
+          <Space style={{ marginBottom: 16, display: "block" }}>
+            Path: {`${path}.jpeg`}
           </Space>
-          <Space align="baseline" style={{ marginBottom: 16 }}>
+          <Form.Item hidden name="w" />
+          <Space style={{ marginBottom: 16, display: "block" }}>
             Width:{" "}
-            <Form.Item name="w" shouldUpdate={(prevValues, curValues) =>prevValues.w !== curValues.w}
-          >
-            <Input disabled />
-          </Form.Item>
+            {form.getFieldValue("w") || typeof data === "string"
+              ? "Unset"
+              : data.type === "image"
+              ? data.w
+              : "Unset"}
           </Space>
-          <Space align="baseline" style={{ marginBottom: 16 }}>
-            {" "}Height:{" "}
-            <Form.Item name="h" shouldUpdate={(prevValues, curValues) =>prevValues.h !== curValues.h}
-          >
-            <Input disabled />
-          </Form.Item>
+          <Form.Item hidden name="h" />
+          <Space style={{ marginBottom: 16, display: "block" }}>
+            Height:{" "}
+            {form.getFieldValue("h") || typeof data === "string"
+              ? "Unset"
+              : data.type === "image"
+              ? data.h
+              : "Unset"}
           </Space>
-          <Upload.Dragger customRequest={getDims} showUploadList={false} beforeUpload={(file) => {
-            if (file.type !== "image/jpeg") {
-              message.error("WRONG FILE TYPE BUDDY STOP TRYING ME HAS TO BE A JPEG BC UR SO LAZY");
-              return false;
-            }
-            return true;
-          }}>
-            <Button icon={<BorderInnerOutlined />} style={{ marginBottom: 16 }}>Get Dimensions</Button>
-          </Upload.Dragger>
+          <Dragger
+            multiple={false}
+            showUploadList={false}
+            customRequest={uploadFile}
+            beforeUpload={(file) => file.type === "image/jpeg"}
+            style={{ maxWidth: 480, height: 240, marginBottom: 16 }}
+          >
+            <p className="ant-upload-drag-icon">
+              <InboxOutlined />
+            </p>
+          </Dragger>
         </>
       )}
       {type === "video" && (
@@ -186,7 +198,24 @@ function ContentEditor({
           <Space style={{ marginBottom: 16 }}>
             Height: {form.getFieldValue("h")}
           </Space>
-          {/* <Button icon={<BorderInnerOutlined />} onClick={getDims}>Get Dimensions</Button> */}
+          {/* <Upload.Dragger
+            customRequest={getDims}
+            showUploadList={false}
+            beforeUpload={(file) => {
+              if (file.type !== "image/jpeg") {
+                message.error(
+                  "WRONG FILE TYPE BUDDY STOP TRYING ME HAS TO BE A JPEG BC UR SO LAZY"
+                );
+                return false;
+              }
+              return true;
+            }}
+            style={{ marginBottom: 16 }}
+          >
+            <Button icon={<BorderInnerOutlined />} style={{ marginBottom: 16 }}>
+              Get Dimensions
+            </Button>
+          </Upload.Dragger> */}
         </>
       )}
       {type === "map" && (
@@ -196,6 +225,22 @@ function ContentEditor({
               mapDim={MAP_DIM}
               onClick={onMapClick}
               onRightclick={onMapRightClick}
+              initialCenter={
+                typeof data === "string"
+                  ? {
+                      lat: 35.10955714631318,
+                      lng: -106.61210092788741,
+                    }
+                  : data.type === "map"
+                  ? {
+                      lat: data.lat,
+                      lng: data.lon,
+                    }
+                  : {
+                      lat: 35.10955714631318,
+                      lng: -106.61210092788741,
+                    }
+              }
             />
           </div>
           <Form.Item label="Latitude" name="lat">
@@ -235,11 +280,13 @@ export function ItemEditor({
   filePath,
   onFinish,
   submit,
+  filePath,
 }: {
   data: { id: string; parentId: string } | TItemForm;
   filePath: string;
   onFinish?: () => void;
   submit?: (update: TItemForm, prevData: TItemForm) => void;
+  filePath: string;
 }): JSX.Element {
   const [form] = Form.useForm();
 
@@ -483,10 +530,12 @@ export function LocationEditor({
   data,
   filePath,
   submit,
+  filePath,
 }: {
   data: string | TLocationForm;
   filePath: string;
   submit: (update: TLocationForm, prevData: string | TLocationForm) => void;
+  filePath: string;
 }): JSX.Element {
   const [form] = Form.useForm();
 
@@ -619,6 +668,7 @@ export function LocationEditor({
             onCancel={() => setItemEditor(undefined)}
           >
             <ItemEditor
+              filePath={filePath}
               data={itemEditor}
               filePath={filePath}
               onFinish={() => setItemEditor(undefined)}
