@@ -1,16 +1,13 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import React, { useState, useEffect, useRef } from "react";
 const fs = window.require("fs");
-const deepEqual = window.require("deep-equal");
 import firebase from "firebase";
 import Graph from "node-dijkstra";
-import { Menu, Layout, Typography, Space, Input, message, Switch } from "antd";
+import { Menu, Layout, Typography, Space, Input, message } from "antd";
 import {
   LoadingOutlined,
   PlusSquareOutlined,
   UploadOutlined,
-  SyncOutlined,
-  UndoOutlined,
 } from "@ant-design/icons";
 import { v4 as uuid } from "uuid";
 import { LocationEditor, ItemEditor } from "./Editors";
@@ -31,7 +28,6 @@ const { Title } = Typography;
 function App(): JSX.Element {
   const [data, setData] = useState<TLocationForm[]>();
   const [initialData, setInitialData] = useState<TLocationForm[]>();
-  const [networkState, setNetworkState] = useState<TLocationForm[]>();
   const [itemLookUp, setItemLookUp] = useState<Record<string, TItemForm>>();
   const [checkItemId, setCheckItemId] = useState("");
   const [selected, setSelected] = useState<string>("new-location");
@@ -89,11 +85,9 @@ function App(): JSX.Element {
                   }
                 }),
               })),
-              minD: undefined,
             }));
             setData(processed);
             setInitialData(processed);
-            setNetworkState(processed);
             processed.forEach((location) => {
               location.items.forEach((item) => updateItemLookUp(item));
             });
@@ -177,7 +171,8 @@ function App(): JSX.Element {
               // If an item got deleted then remove all its connections from their partners
               item.connections.forEach((connection) => {
                 const partner = itemLookUp![connection.partnerId];
-                const parentIndex = indexOfId(newData, partner.parentId);
+                const parentIndex =
+                  indexOfId(newData, partner.parentId) || index;
                 const parent = newData[parentIndex!];
                 const partnerIndex = indexOfId(parent.items, partner.id);
                 const connectionIndex = indexOfId(
@@ -294,28 +289,7 @@ function App(): JSX.Element {
     }
   }
 
-  function deleteLocation(location: TLocationForm) {
-    if (data) {
-      const newData = [...data];
-      location.items.forEach(({ connections }) => {
-        connections.forEach((connection) => {
-          const partner = itemLookUp![connection.partnerId];
-          const parentIndex = indexOfId(newData, partner.parentId);
-          const parent = newData[parentIndex!];
-          const partnerIndex = indexOfId(parent.items, partner.id);
-          const connectionIndex = indexOfId(partner.connections, connection.id);
-          newData[parentIndex!].items[partnerIndex!].connections.splice(
-            connectionIndex!,
-            1
-          );
-        });
-      });
-      const idx = indexOfId(newData, location.id);
-      newData.splice(idx!, 1);
-      setSelected("new-location");
-      setData(newData);
-    }
-  }
+  console.log(data);
 
   function processData(data: TLocationForm[]): {
     nodes: TNode[];
@@ -361,12 +335,7 @@ function App(): JSX.Element {
     const object = index !== undefined ? data![index] : itemLookUp![selected];
     if ("items" in object) {
       return (
-        <LocationEditor
-          deleteLocation={deleteLocation}
-          filePath={filePath}
-          data={object}
-          submit={updateData}
-        />
+        <LocationEditor filePath={filePath} data={object} submit={updateData} />
       );
     } else {
       return (
@@ -379,7 +348,7 @@ function App(): JSX.Element {
   }
 
   async function upload() {
-    if (data && networkState) {
+    if (data && initialData) {
       setUploading(true);
       const graph = new Graph();
       // Go over every item
@@ -395,7 +364,6 @@ function App(): JSX.Element {
           // Upload all the changed content
           for (const contentItem of content) {
             if (contentItem.changed) {
-              contentItem.changed = false;
               switch (contentItem.type) {
                 case "image": {
                   await firebase
@@ -430,9 +398,9 @@ function App(): JSX.Element {
             }
           }
           // Delete the deleted content
-          const initLocationIdx = indexOfId(networkState, parentId);
+          const initLocationIdx = indexOfId(initialData, parentId);
           const initLocation = initLocationIdx
-            ? networkState[initLocationIdx]
+            ? initialData[initLocationIdx]
             : undefined;
           const initItemIdx = initLocation
             ? indexOfId(initLocation.items, id)
@@ -453,7 +421,7 @@ function App(): JSX.Element {
         }
       }
       // Delete all deleted locations
-      for (const location of networkState) {
+      for (const location of initialData) {
         if (!data.map((l) => l.id).includes(location.id)) {
           await firebase
             .firestore()
@@ -559,79 +527,8 @@ function App(): JSX.Element {
           .doc(location.id)
           .set(location);
       }
-      setNetworkState(uploadData);
       setUploading(false);
     }
-  }
-
-  async function checkAgainstLocal() {
-    firebase
-      .firestore()
-      .collection("master")
-      .get()
-      .then((snapshot) => {
-        const raw: TLocation[] = [];
-        snapshot.forEach((doc) => {
-          raw.push(doc.data() as TLocation);
-        });
-        console.log(raw);
-        const processed = raw.map((location) => ({
-          ...location,
-          items: Object.values(location.items).map((item) => ({
-            id: item.id,
-            name: item.name,
-            description: item.description,
-            parentId: item.parentId,
-            connections: Object.values(item.connections),
-            content: item.content.map((content) => {
-              switch (content.type) {
-                case "image":
-                  return {
-                    ...content,
-                    changed: false,
-                    name: content.name,
-                    path: `${filePath}/${location.id}/${item.id}/${content.id}.jpeg`,
-                    uri: undefined,
-                  };
-                case "video":
-                  return {
-                    ...content,
-                    changed: false,
-                    posterPath: `${filePath}/${location.id}/${item.id}/${content.id}.jpeg`,
-                    videoPath: `${filePath}/${location.id}/${item.id}/${content.id}.mp4`,
-                    uri: undefined,
-                  };
-                case "map":
-                  return {
-                    ...content,
-                    changed: false,
-                    uri: undefined,
-                  };
-              }
-            }),
-          })),
-          minD: undefined,
-        }));
-        console.log(processed);
-        const ordered = data?.map(({ id }) => {
-          const idx = indexOfId(processed, id);
-          return idx !== undefined ? processed[idx] : "MISSING";
-        });
-        if (deepEqual(data, ordered) && ordered?.length === processed.length) {
-          message.success("Equal");
-          console.log("sakdjflasdkjfas;ldj;asld");
-          console.log(ordered);
-          console.log(data);
-        } else {
-          console.log("---------LOCAL----------");
-          console.log(data);
-          console.log("------------------------");
-          console.log("--------NETWORK---------");
-          console.log(ordered);
-          console.log("------------------------");
-          message.error("Not equal");
-        }
-      });
   }
 
   return (
@@ -656,25 +553,6 @@ function App(): JSX.Element {
           >
             Upload
           </Menu.Item>
-          <Menu.Item
-            icon={<SyncOutlined />}
-            title="check"
-            onClick={checkAgainstLocal}
-          >
-            Check
-          </Menu.Item>
-          <Menu.Item
-            icon={<UndoOutlined />}
-            title="undo"
-            onClick={() => {
-              const reset = [...initialData!];
-              setSelected("new-location");
-              setData(reset);
-              console.log(reset);
-            }}
-          >
-            Reset
-          </Menu.Item>
         </Menu>
         <Space style={{ display: "flex", marginBottom: 8 }} align="baseline">
           <Input
@@ -692,17 +570,6 @@ function App(): JSX.Element {
             onPressEnter={() => setFilePath(pathRef?.current?.state.value)}
           />
         </Space>
-        GDrive
-        <Switch
-          onChange={(checked) =>
-            setFilePath(
-              checked
-                ? "/Volumes/SEAGATE"
-                : "/Users/sage/Google Drive/ASSOC CONTENT"
-            )
-          }
-        />
-        Seagate
         {selected ? <Editor selected={selected} /> : null}
       </Sider>
       <Layout className="site-layout">

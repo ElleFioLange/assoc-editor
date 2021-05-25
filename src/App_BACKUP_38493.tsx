@@ -1,8 +1,17 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
+<<<<<<< HEAD
+import React, { useState, useEffect } from "react";
+import fs from "fs";
+=======
 import React, { useState, useEffect, useRef } from "react";
 const fs = window.require("fs");
+<<<<<<< HEAD
+>>>>>>> 73291f6 (added getting dims to the video content form)
+=======
 const deepEqual = window.require("deep-equal");
+>>>>>>> 773da5a (she is beautiful. she is gorgeous. she is a queen. a star. a brilliant diamond. oh god im so happy)
 import firebase from "firebase";
+// import * as firebase from "firebase-admin";
 import Graph from "node-dijkstra";
 import { Menu, Layout, Typography, Space, Input, message, Switch } from "antd";
 import {
@@ -13,11 +22,11 @@ import {
   UndoOutlined,
 } from "@ant-design/icons";
 import { v4 as uuid } from "uuid";
+// import Menu from "./Menu";
 import { LocationEditor, ItemEditor } from "./Editors";
 import { ForceGraph3D } from "react-force-graph";
 import SpriteText from "three-spritetext";
 import useWindowDims from "./useWindowDims";
-import indexOfId from "./indexOfId";
 import "antd/dist/antd.css";
 
 const SIDER_WIDTH = 450;
@@ -25,10 +34,9 @@ const SIDER_WIDTH = 450;
 const { Content, Sider } = Layout;
 const { Title } = Typography;
 
-// TODO double check upload
-// TODO deleted locations in upload
+// TODO put parentIDs in the connections so you can actually look up the items
 
-function App(): JSX.Element {
+function App({ filePath }: { filePath: string }): JSX.Element {
   const [data, setData] = useState<TLocationForm[]>();
   const [initialData, setInitialData] = useState<TLocationForm[]>();
   const [networkState, setNetworkState] = useState<TLocationForm[]>();
@@ -36,7 +44,6 @@ function App(): JSX.Element {
   const [checkItemId, setCheckItemId] = useState("");
   const [selected, setSelected] = useState<string>("new-location");
   const [uploading, setUploading] = useState(false);
-  const [filePath, setFilePath] = useState("/Volumes/Seagate");
   const windowDims = useWindowDims();
 
   const pathRef = useRef<Input>(null);
@@ -92,8 +99,15 @@ function App(): JSX.Element {
               minD: undefined,
             }));
             setData(processed);
+<<<<<<< HEAD
+            console.log(processed);
+=======
             setInitialData(processed);
+<<<<<<< HEAD
+>>>>>>> 73291f6 (added getting dims to the video content form)
+=======
             setNetworkState(processed);
+>>>>>>> 773da5a (she is beautiful. she is gorgeous. she is a queen. a star. a brilliant diamond. oh god im so happy)
             processed.forEach((location) => {
               location.items.forEach((item) => updateItemLookUp(item));
             });
@@ -109,6 +123,15 @@ function App(): JSX.Element {
     }));
   }
 
+  function indexOfId(list: { id: string }[], id: string) {
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].id === id) {
+        return i;
+      }
+    }
+    return undefined;
+  }
+
   function updateData(
     update: TLocationForm | TItemForm,
     prevData: (string | TLocationForm) | TItemForm
@@ -119,12 +142,16 @@ function App(): JSX.Element {
         // Update itemLookUp and sync connections across items
         update.items.forEach((item) => updateItemLookUp(item));
         const index = indexOfId(newData, update.id);
+<<<<<<< HEAD
+        if (index !== undefined) {
+=======
         if (
           index !== undefined &&
           typeof prevData !== "string" &&
           "items" in prevData
         ) {
           // If the location already existed, then check for new and deleted connections
+>>>>>>> 73291f6 (added getting dims to the video content form)
           newData[index] = update;
           update.items.forEach((item) => {
             const prevItemIndex = indexOfId(prevData.items, item.id);
@@ -133,7 +160,6 @@ function App(): JSX.Element {
               : undefined;
             console.log({ prevItemIndex, prevConnections });
             item.connections.forEach((connection) => {
-              // If this is a new connection add it to the partner
               if (prevConnections && !prevConnections.includes(connection)) {
                 const partner = itemLookUp![connection.partnerId];
                 const parentIndex = indexOfId(newData, partner.parentId);
@@ -152,7 +178,6 @@ function App(): JSX.Element {
             });
             if (prevConnections)
               prevConnections.forEach((connection) => {
-                // If there's a connection that got deleted remove it from the partner
                 if (!item.connections.includes(connection)) {
                   const partner = itemLookUp![connection.partnerId];
                   const parentIndex = indexOfId(newData, partner.parentId);
@@ -174,7 +199,6 @@ function App(): JSX.Element {
             if (
               !update.items.map((updateItem) => updateItem.id).includes(item.id)
             ) {
-              // If an item got deleted then remove all its connections from their partners
               item.connections.forEach((connection) => {
                 const partner = itemLookUp![connection.partnerId];
                 const parentIndex = indexOfId(newData, partner.parentId);
@@ -193,7 +217,11 @@ function App(): JSX.Element {
           });
         } else {
           newData.push(update);
+<<<<<<< HEAD
+          // Update item look up and sync connections across items
+=======
           // If the location is new then just add all connections to their partners
+>>>>>>> 73291f6 (added getting dims to the video content form)
           update.items.forEach((item) => {
             updateItemLookUp(item);
             item.connections.forEach((connection) => {
@@ -213,6 +241,18 @@ function App(): JSX.Element {
             });
           });
         }
+<<<<<<< HEAD
+      } else if (
+        "connections" in update &&
+        typeof prevData !== "string" &&
+        "connections" in prevData
+      ) {
+        updateItemLookUp(update);
+        const parentIndex = indexOfId(newData, update.parentId);
+        const index = indexOfId(newData[parentIndex!].items, update.id);
+        if (index !== undefined) {
+          // console.log(data);
+=======
       } else {
         // Update itemLookUp and check for new and deleted connections
         updateItemLookUp(update);
@@ -224,11 +264,15 @@ function App(): JSX.Element {
           "connections" in prevData
         ) {
           // If the item already existed, then check for new and deleted connections
+>>>>>>> 73291f6 (added getting dims to the video content form)
           newData[parentIndex!].items[index] = update;
           const prevConnections = prevData.connections;
+          // console.log(data[parentIndex!].items);
+          // console.log(index);
+          // console.log(parentIndex);
+          // console.log(newData);
           update.connections.forEach((connection) => {
             if (prevConnections && !prevConnections.includes(connection)) {
-              // If this is a new connection add it to the partner
               const partner = itemLookUp![connection.partnerId];
               const parentIndex = indexOfId(newData, partner.parentId);
               const parent = newData[parentIndex!];
@@ -247,7 +291,6 @@ function App(): JSX.Element {
           if (prevConnections)
             prevConnections.forEach((connection) => {
               if (!update.connections.includes(connection)) {
-                // If there's a connection that got deleted remove it from the partner
                 const partner = itemLookUp![connection.partnerId];
                 const parentIndex = indexOfId(newData, partner.parentId);
                 const parent = newData[parentIndex!];
@@ -271,7 +314,6 @@ function App(): JSX.Element {
               }
             });
         } else {
-          // If the item is new then just add all connections to their partners
           newData[parentIndex!].items.push(update);
           update.connections.forEach((connection) => {
             const partner = itemLookUp![connection.partnerId];
@@ -359,6 +401,11 @@ function App(): JSX.Element {
     }
     const index = indexOfId(data!, selected);
     const object = index !== undefined ? data![index] : itemLookUp![selected];
+    // console.log(index);
+    // console.log(data);
+    // console.log(selected);
+    // console.log(object);
+    // console.log(itemLookUp);
     if ("items" in object) {
       return (
         <LocationEditor
@@ -382,10 +429,15 @@ function App(): JSX.Element {
     if (data && networkState) {
       setUploading(true);
       const graph = new Graph();
+<<<<<<< HEAD
+      data.forEach(({ items }) => {
+        items.forEach(({ id, parentId, connections, content }) => {
+=======
       // Go over every item
       for (const { items } of data) {
         for (const { id, parentId, connections, content } of items) {
           // Add all the nodes so for dijkstras
+>>>>>>> 73291f6 (added getting dims to the video content form)
           graph.addNode(
             id,
             Object.fromEntries(
@@ -463,6 +515,67 @@ function App(): JSX.Element {
         }
       }
       const uploadData = await Promise.all(
+<<<<<<< HEAD
+        data.map(async (location) => [
+          {
+            ...location,
+            items: Object.fromEntries(
+              await Promise.all(
+                location.items.map(async (item) =>
+                  Promise.resolve([
+                    item.id,
+                    {
+                      ...item,
+                      parentName: location.name,
+                      connections: Object.fromEntries(
+                        item.connections.map((connection) => [
+                          connection.id,
+                          connection,
+                        ])
+                      ),
+                      content: await Promise.all(
+                        item.content.map(async (contentItem) => {
+                          switch (contentItem.type) {
+                            case "image": {
+                              return {
+                                ...contentItem,
+                                uri: await firebase
+                                  .storage()
+                                  .ref(
+                                    `${filePath}/${item.parentId}/${contentItem.id}/${contentItem.id}.jpeg`
+                                  )
+                                  .getDownloadURL(),
+                                changed: undefined,
+                                path: undefined,
+                              };
+                            }
+                            case "video": {
+                              return {
+                                ...contentItem,
+                                posterUri: await firebase
+                                  .storage()
+                                  .ref(
+                                    `${filePath}/${item.parentId}/${contentItem.id}/${contentItem.id}.jpeg`
+                                  )
+                                  .getDownloadURL(),
+                                videoUri: await firebase
+                                  .storage()
+                                  .ref(
+                                    `${filePath}/${item.parentId}/${contentItem.id}/${contentItem.id}.mp4`
+                                  )
+                                  .getDownloadURL(),
+                                changed: undefined,
+                                posterPath: undefined,
+                                videoPath: undefined,
+                              };
+                            }
+                            case "map": {
+                              return {
+                                ...contentItem,
+                                changed: undefined,
+                              };
+                            }
+=======
         data.map(async (location) => ({
           ...location,
           items: Object.fromEntries(
@@ -517,6 +630,7 @@ function App(): JSX.Element {
                               posterPath: undefined,
                               videoPath: undefined,
                             };
+>>>>>>> 73291f6 (added getting dims to the video content form)
                           }
                           case "map": {
                             return {
@@ -685,6 +799,8 @@ function App(): JSX.Element {
             ? itemLookUp[checkItemId].name
             : "N/A"}
         </Space>
+<<<<<<< HEAD
+=======
         <Space style={{ display: "flex", marginBottom: 8 }} align="baseline">
           <Input
             ref={pathRef}
@@ -692,6 +808,9 @@ function App(): JSX.Element {
             onPressEnter={() => setFilePath(pathRef?.current?.state.value)}
           />
         </Space>
+<<<<<<< HEAD
+>>>>>>> 73291f6 (added getting dims to the video content form)
+=======
         GDrive
         <Switch
           onChange={(checked) =>
@@ -703,6 +822,7 @@ function App(): JSX.Element {
           }
         />
         Seagate
+>>>>>>> 773da5a (she is beautiful. she is gorgeous. she is a queen. a star. a brilliant diamond. oh god im so happy)
         {selected ? <Editor selected={selected} /> : null}
       </Sider>
       <Layout className="site-layout">

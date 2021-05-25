@@ -583,11 +583,13 @@ export function LocationEditor({
   data,
   filePath,
   submit,
+  deleteLocation,
   filePath,
 }: {
   data: string | TLocationForm;
   filePath: string;
   submit: (update: TLocationForm, prevData: string | TLocationForm) => void;
+  deleteLocation?: (location: TLocationForm) => void;
   filePath: string;
 }): JSX.Element {
   const [form] = Form.useForm();
@@ -606,7 +608,11 @@ export function LocationEditor({
             case "locationForm": {
               const { locationForm } = forms;
               const items = locationForm.getFieldValue("items") || [];
-              const location = { ...values, items } as TLocationForm;
+              const location = {
+                ...values,
+                items,
+                minD: undefined,
+              } as unknown as TLocationForm;
               submit(location, data);
               break;
             }
@@ -711,6 +717,17 @@ export function LocationEditor({
           >
             Submit
           </Button>
+          {deleteLocation && typeof data !== "string" && (
+            <Button
+              type="primary"
+              danger
+              block
+              onClick={() => deleteLocation(data)}
+              style={{ marginBottom: 16 }}
+            >
+              Delete
+            </Button>
+          )}
         </Form>
         {itemEditor && (
           <Modal
