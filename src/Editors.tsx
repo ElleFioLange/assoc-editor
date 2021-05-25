@@ -3,6 +3,7 @@ import React, { useState } from "react";
 const fs = window.require("fs");
 const ffprobe = window.require("ffprobe");
 const ffprobeStatic = window.require("ffprobe-static");
+const { shell } = window.require("electron");
 import { v4 as uuid } from "uuid";
 import {
   Form,
@@ -26,6 +27,7 @@ import {
   ClockCircleOutlined,
   ClockCircleFilled,
   InboxOutlined,
+  FolderOpenOutlined,
 } from "@ant-design/icons";
 import "antd/dist/antd.css";
 import { mapEventHandler } from "google-maps-react";
@@ -526,6 +528,16 @@ export function ItemEditor({
           onClick={() => setContentEditor(uuid())}
         >
           Add Content
+        </Button>
+        <Button
+          style={{ marginBottom: 12 }}
+          type="default"
+          icon={<FolderOpenOutlined />}
+          onClick={() =>
+            shell.openPath(`${filePath}/${data.parentId}/${data.id}`)
+          }
+        >
+          Open Content Folder
         </Button>
         <Button
           type="primary"

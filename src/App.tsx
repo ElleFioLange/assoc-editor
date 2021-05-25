@@ -10,6 +10,7 @@ import {
   PlusSquareOutlined,
   UploadOutlined,
   SyncOutlined,
+  LoginOutlined,
   UndoOutlined,
 } from "@ant-design/icons";
 import { v4 as uuid } from "uuid";
@@ -24,8 +25,6 @@ const SIDER_WIDTH = 450;
 
 const { Content, Sider } = Layout;
 const { Title } = Typography;
-
-// TODO firebase admin?
 // TODO user reports / feedback / add register codes?
 
 function App(): JSX.Element {
@@ -643,6 +642,20 @@ function App(): JSX.Element {
       >
         <Menu selectable={false}>
           <Menu.Item
+            icon={<LoginOutlined />}
+            title="login"
+            onClick={() => {
+              firebase
+                .auth()
+                .signInWithEmailAndPassword(
+                  "sage.fio.lange@gmail.com",
+                  "uncutgemswasafuckingmasterpiece"
+                );
+            }}
+          >
+            Login
+          </Menu.Item>
+          <Menu.Item
             icon={<PlusSquareOutlined />}
             title="new-location"
             onClick={() => setSelected("new-location")}
@@ -688,6 +701,7 @@ function App(): JSX.Element {
         <Space style={{ display: "flex", marginBottom: 8 }} align="baseline">
           <Input
             ref={pathRef}
+            placeholder="custom file path"
             style={{ width: 450 }}
             onPressEnter={() => setFilePath(pathRef?.current?.state.value)}
           />
