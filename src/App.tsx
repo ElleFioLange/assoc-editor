@@ -25,8 +25,8 @@ const SIDER_WIDTH = 450;
 const { Content, Sider } = Layout;
 const { Title } = Typography;
 
-// TODO double check upload
-// TODO deleted locations in upload
+// TODO firebase admin?
+// TODO user reports / feedback / add register codes?
 
 function App(): JSX.Element {
   const [data, setData] = useState<TLocationForm[]>();
