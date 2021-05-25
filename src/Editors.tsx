@@ -226,18 +226,6 @@ function ContentEditor({
             Video Path:{" "}
             {`${filePath}/${typeof data === "string" ? data : data.id}.mp4`}
           </Space>
-<<<<<<< HEAD
-          <Form.Item name="w" hidden />
-          <Space style={{ marginBottom: 16 }}>
-            Width: {form.getFieldValue("w")}
-          </Space>
-          <Form.Item name="h" hidden />
-          <Space style={{ marginBottom: 16 }}>
-            Height: {form.getFieldValue("h")}
-          </Space>
-          {/* <Upload.Dragger
-            customRequest={getDims}
-=======
           Width:{" "}
           <Form.Item
             name="videoW"
@@ -254,7 +242,6 @@ function ContentEditor({
           </Form.Item>
           <Dragger
             multiple={false}
->>>>>>> 73291f6 (added getting dims to the video content form)
             showUploadList={false}
             customRequest={({ file }) => uploadFile(file, "video")}
             beforeUpload={(file) => file.type === "video/mp4"}
@@ -328,13 +315,11 @@ export function ItemEditor({
   filePath,
   onFinish,
   submit,
-  filePath,
 }: {
   data: { id: string; parentId: string } | TItemForm;
   filePath: string;
   onFinish?: () => void;
   submit?: (update: TItemForm, prevData: TItemForm) => void;
-  filePath: string;
 }): JSX.Element {
   const [form] = Form.useForm();
 
@@ -347,14 +332,8 @@ export function ItemEditor({
           case "contentForm": {
             const { itemForm } = forms;
             const content = itemForm.getFieldValue("content") || [];
-<<<<<<< HEAD
-            console.log(content);
-            const index = content.getIndexOf(values);
-            if (index === -1)
-=======
             const index = indexOfId(content, values.id);
             if (index === undefined)
->>>>>>> 73291f6 (added getting dims to the video content form)
               itemForm.setFieldsValue({
                 content: [...content, values],
               });
@@ -584,13 +563,11 @@ export function LocationEditor({
   filePath,
   submit,
   deleteLocation,
-  filePath,
 }: {
   data: string | TLocationForm;
   filePath: string;
   submit: (update: TLocationForm, prevData: string | TLocationForm) => void;
   deleteLocation?: (location: TLocationForm) => void;
-  filePath: string;
 }): JSX.Element {
   const [form] = Form.useForm();
 
@@ -740,7 +717,6 @@ export function LocationEditor({
             <ItemEditor
               filePath={filePath}
               data={itemEditor}
-              filePath={filePath}
               onFinish={() => setItemEditor(undefined)}
             />
           </Modal>

@@ -29,7 +29,7 @@ firebase
 
 ReactDOM.render(
   <React.StrictMode>
-    <App filePath="/Users/sage/assoc-editor/dev_content" />
+    <App />
   </React.StrictMode>,
   document.getElementById("root")
 );

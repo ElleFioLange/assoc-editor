@@ -1,4 +1,5 @@
 declare module "uuid";
+declare module "indexOfId";
 
 type TImage = {
   type: "image";
