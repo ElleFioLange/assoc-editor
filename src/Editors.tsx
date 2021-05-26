@@ -40,6 +40,30 @@ const { TextArea } = Input;
 const { Title } = Typography;
 const { Dragger } = Upload;
 
+function AdEditor({
+  data,
+  onFinish
+}: {
+  data: string | TAdInfo;
+  onFinish: () => void;
+}) {
+  const [form] = Form.useForm();
+
+  return (
+    <Form
+      form={form}
+      layout="vertical"
+      name="adForm"
+      initialValues={
+        typeof data === "string" ? { id: data } : data
+      }
+    >
+      <Form.Item name="id" hidden />
+      <
+    </Form>
+  )
+}
+
 function ContentEditor({
   data,
   onFinish,
