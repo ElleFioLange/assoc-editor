@@ -1,4 +1,12 @@
-<Layout style={{ height: "100vh" }}>
+import React, { useState } from "react";
+import { Layout, Typography } from "antd";
+
+export default function GraphEditor({ data, update }: {
+  data: TDataForm;
+  
+})
+
+{/* <Layout style={{ height: "100vh" }}>
       <Sider
         width={SIDER_WIDTH}
         theme="light"
@@ -107,4 +115,4 @@
           />
         </Content>
       </Layout>
-    </Layout>
+    </Layout> */}
