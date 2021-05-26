@@ -4,7 +4,7 @@ const fs = window.require("fs");
 const deepEqual = window.require("deep-equal");
 import firebase from "firebase";
 import Graph from "node-dijkstra";
-import { Menu, Layout, Typography, Space, Input, message, Switch } from "antd";
+import { Menu, Layout, Typography, Space, Input, message } from "antd";
 import {
   LoadingOutlined,
   PlusSquareOutlined,
@@ -30,12 +30,14 @@ const { Title } = Typography;
 function App(): JSX.Element {
   const [data, setData] = useState<TLocationForm[]>();
   const [initialData, setInitialData] = useState<TLocationForm[]>();
-  const [networkState, setNetworkState] = useState<TLocationForm[]>();
+  const [networkState, setNetworkState] = useState<TLocation[]>();
   const [itemLookUp, setItemLookUp] = useState<Record<string, TItemForm>>();
   const [checkItemId, setCheckItemId] = useState("");
   const [selected, setSelected] = useState<string>("new-location");
   const [uploading, setUploading] = useState(false);
-  const [filePath, setFilePath] = useState("/Volumes/Seagate");
+  const [filePath, setFilePath] = useState(
+    "/Users/sage/Google Drive/ASSOC CONTENT"
+  );
   const windowDims = useWindowDims();
 
   const pathRef = useRef<Input>(null);
@@ -53,6 +55,7 @@ function App(): JSX.Element {
             snapshot.forEach((doc) => {
               raw.push(doc.data() as TLocation);
             });
+            setNetworkState([...raw]);
             const processed = raw.map((location) => ({
               ...location,
               items: Object.values(location.items).map((item) => ({
@@ -67,32 +70,24 @@ function App(): JSX.Element {
                       return {
                         ...content,
                         changed: false,
-                        name: content.name,
-                        path: `${filePath}/${location.id}/${item.id}/${content.id}.jpeg`,
-                        uri: undefined,
                       };
                     case "video":
                       return {
                         ...content,
                         changed: false,
-                        posterPath: `${filePath}/${location.id}/${item.id}/${content.id}.jpeg`,
-                        videoPath: `${filePath}/${location.id}/${item.id}/${content.id}.mp4`,
-                        uri: undefined,
                       };
                     case "map":
                       return {
                         ...content,
                         changed: false,
-                        uri: undefined,
                       };
                   }
                 }),
               })),
               minD: undefined,
             }));
-            setData(processed);
-            setInitialData(processed);
-            setNetworkState(processed);
+            setData([...processed]);
+            setInitialData([...processed]);
             processed.forEach((location) => {
               location.items.forEach((item) => updateItemLookUp(item));
             });
@@ -379,6 +374,8 @@ function App(): JSX.Element {
 
   async function upload() {
     if (data && networkState) {
+      console.log("NETWORK STATE BEGINNING");
+      console.log(networkState);
       setUploading(true);
       const graph = new Graph();
       // Go over every item
@@ -429,26 +426,50 @@ function App(): JSX.Element {
             }
           }
           // Delete the deleted content
+          // console.log("NETWORK STATE");
+          // console.log(networkState);
           const initLocationIdx = indexOfId(networkState, parentId);
-          const initLocation = initLocationIdx
-            ? networkState[initLocationIdx]
-            : undefined;
-          const initItemIdx = initLocation
-            ? indexOfId(initLocation.items, id)
-            : undefined;
-          const initItem =
-            initLocation && initItemIdx
-              ? initLocation.items[initItemIdx]
+          const initLocation =
+            initLocationIdx !== undefined
+              ? networkState[initLocationIdx]
               : undefined;
-          if (initItem)
+          const initItem = initLocation ? initLocation.items[id] : undefined;
+          // console.log("--------------------");
+          // console.log(initLocationIdx);
+          // console.log(initLocation);
+          // console.log(initItemIdx);
+          // console.log(initItem);
+          // console.log("--------------------");
+          if (initItem) {
+            const idsToCheck = content.map((c) => c.id);
             for (const contentItem of initItem.content) {
-              if (!content.map((c) => c.id).includes(contentItem.id)) {
-                await firebase
-                  .storage()
-                  .ref(`${parentId}/${id}/${contentItem.id}`)
-                  .delete();
+              // console.log("--------------------");
+              // console.log(content);
+              // console.log(contentItem);
+              // console.log("--------------------");
+              if (!idsToCheck.includes(contentItem.id)) {
+                switch (contentItem.type) {
+                  case "image": {
+                    await firebase
+                      .storage()
+                      .ref(`${parentId}/${id}/${contentItem.id}.jpeg`)
+                      .delete();
+                    break;
+                  }
+                  case "video": {
+                    await firebase
+                      .storage()
+                      .ref(`${parentId}/${id}/${contentItem.id}.jpeg`)
+                      .delete();
+                    await firebase
+                      .storage()
+                      .ref(`${parentId}/${id}/${contentItem.id}.mp4`)
+                      .delete();
+                  }
+                }
               }
             }
+          }
         }
       }
       // Delete all deleted locations
@@ -461,95 +482,66 @@ function App(): JSX.Element {
             .delete();
         }
       }
-      const uploadData = await Promise.all(
-        data.map(async (location) => ({
-          ...location,
-          items: Object.fromEntries(
-            await Promise.all(
-              location.items.map(async (item) =>
-                Promise.resolve([
-                  item.id,
+      const uploadData = data.map((location) => ({
+        ...location,
+        items: Object.fromEntries(
+          location.items.map((item) => [
+            item.id,
+            {
+              ...item,
+              parentName: location.name,
+              connections: Object.fromEntries(
+                item.connections.map((connection) => [
+                  connection.id,
                   {
-                    ...item,
-                    parentName: location.name,
-                    connections: Object.fromEntries(
-                      item.connections.map((connection) => [
-                        connection.id,
-                        {
-                          ...connection,
-                          parentId: itemLookUp![connection.partnerId].parentId,
-                        },
-                      ])
-                    ),
-                    content: await Promise.all(
-                      item.content.map(async (contentItem) => {
-                        switch (contentItem.type) {
-                          case "image": {
-                            return {
-                              ...contentItem,
-                              uri: await firebase
-                                .storage()
-                                .ref(
-                                  `${item.parentId}/${item.id}/${contentItem.id}.jpeg`
-                                )
-                                .getDownloadURL(),
-                              changed: undefined,
-                              path: undefined,
-                            };
-                          }
-                          case "video": {
-                            return {
-                              ...contentItem,
-                              posterUri: await firebase
-                                .storage()
-                                .ref(
-                                  `${item.parentId}/${item.id}/${contentItem.id}.jpeg`
-                                )
-                                .getDownloadURL(),
-                              videoUri: await firebase
-                                .storage()
-                                .ref(
-                                  `${item.parentId}/${item.id}/${contentItem.id}.mp4`
-                                )
-                                .getDownloadURL(),
-                              changed: undefined,
-                              posterPath: undefined,
-                              videoPath: undefined,
-                            };
-                          }
-                          case "map": {
-                            return {
-                              ...contentItem,
-                              changed: undefined,
-                            };
-                          }
-                        }
-                      })
-                    ),
+                    ...connection,
+                    parentId: itemLookUp![connection.partnerId].parentId,
                   },
                 ])
-              )
-            )
-          ),
-          minD: Object.fromEntries(
-            data.map((otherLocation) => [
-              otherLocation.id,
-              location.id === otherLocation.id
-                ? 0
-                : Math.min(
-                    ...location.items.map((item) =>
-                      Math.min(
-                        ...otherLocation.items.map(
-                          (otherItem) =>
-                            graph.path(item.id, otherItem.id).length - 1
-                        )
+              ),
+              content: item.content.map((contentItem) => {
+                switch (contentItem.type) {
+                  case "image": {
+                    return {
+                      ...contentItem,
+                      changed: undefined,
+                    };
+                  }
+                  case "video": {
+                    return {
+                      ...contentItem,
+                      changed: undefined,
+                    };
+                  }
+                  case "map": {
+                    return {
+                      ...contentItem,
+                      changed: undefined,
+                    };
+                  }
+                }
+              }),
+            },
+          ])
+        ),
+        minD: Object.fromEntries(
+          data.map((otherLocation) => [
+            otherLocation.id,
+            location.id === otherLocation.id
+              ? 0
+              : Math.min(
+                  ...location.items.map((item) =>
+                    Math.min(
+                      ...otherLocation.items.map(
+                        (otherItem) =>
+                          graph.path(item.id, otherItem.id).length - 1
                       )
                     )
-                  ),
-            ])
-          ),
-        }))
-      );
+                  )
+                ),
+          ])
+        ),
+      }));
       console.log(uploadData);
       for (const location of uploadData) {
         await firebase
@@ -588,23 +580,16 @@ function App(): JSX.Element {
                   return {
                     ...content,
                     changed: false,
-                    name: content.name,
-                    path: `${filePath}/${location.id}/${item.id}/${content.id}.jpeg`,
-                    uri: undefined,
                   };
                 case "video":
                   return {
                     ...content,
                     changed: false,
-                    posterPath: `${filePath}/${location.id}/${item.id}/${content.id}.jpeg`,
-                    videoPath: `${filePath}/${location.id}/${item.id}/${content.id}.mp4`,
-                    uri: undefined,
                   };
                 case "map":
                   return {
                     ...content,
                     changed: false,
-                    uri: undefined,
                   };
               }
             }),
@@ -703,20 +688,10 @@ function App(): JSX.Element {
             ref={pathRef}
             placeholder="custom file path"
             style={{ width: 450 }}
+            defaultValue="/Users/sage/Google Drive/ASSOC CONTENT"
             onPressEnter={() => setFilePath(pathRef?.current?.state.value)}
           />
         </Space>
-        GDrive
-        <Switch
-          onChange={(checked) =>
-            setFilePath(
-              checked
-                ? "/Volumes/SEAGATE"
-                : "/Users/sage/Google Drive/ASSOC CONTENT"
-            )
-          }
-        />
-        Seagate
         {selected ? <Editor selected={selected} /> : null}
       </Sider>
       <Layout className="site-layout">

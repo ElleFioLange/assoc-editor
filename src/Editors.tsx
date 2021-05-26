@@ -148,13 +148,6 @@ function ContentEditor({
       </Form.Item>
       {type === "image" && (
         <>
-          <Form.Item
-            hidden
-            name="path"
-            initialValue={`${filePath}/${
-              typeof data === "string" ? data : data.id
-            }.jpeg`}
-          />
           <Space style={{ marginBottom: 16, display: "block" }}>
             Path: {`${path}.jpeg`}
           </Space>
@@ -181,13 +174,6 @@ function ContentEditor({
       )}
       {type === "video" && (
         <>
-          <Form.Item
-            hidden
-            name="posterPath"
-            initialValue={`${filePath}/${
-              typeof data === "string" ? data : data.id
-            }.jpeg`}
-          />
           <Space style={{ marginBottom: 16 }}>
             Poster Path:{" "}
             {`${filePath}/${typeof data === "string" ? data : data.id}.jpeg`}
@@ -217,13 +203,6 @@ function ContentEditor({
               <InboxOutlined />
             </p>
           </Dragger>
-          <Form.Item
-            hidden
-            name="videoPath"
-            initialValue={`${filePath}/${
-              typeof data === "string" ? data : data.id
-            }.jpeg`}
-          />
           <Space style={{ marginBottom: 16 }}>
             Video Path:{" "}
             {`${filePath}/${typeof data === "string" ? data : data.id}.mp4`}

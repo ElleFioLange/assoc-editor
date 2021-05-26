@@ -5,7 +5,6 @@ type TImage = {
   type: "image";
   id: string;
   name: string;
-  uri: string;
   w: number;
   h: number;
 };
@@ -14,10 +13,8 @@ type TVideo = {
   type: "video";
   id: string;
   name: string;
-  posterUri: string;
   posterW: number;
   posterH: number;
-  videoUri: string;
   videoW: number;
   videoH: number;
 };
@@ -65,7 +62,6 @@ type TImageForm = {
   type: "image";
   id: string;
   name: string;
-  path: string;
   w: number;
   h: number;
 };
@@ -75,10 +71,8 @@ type TVideoForm = {
   type: "video";
   id: string;
   name: string;
-  posterPath: string;
   posterW: number;
   posterH: number;
-  videoPath: string;
   videoW: number;
   videoH: number;
 };
