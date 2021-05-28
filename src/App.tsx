@@ -20,7 +20,13 @@ import SpriteText from "three-spritetext";
 import useWindowDims from "./useWindowDims";
 import indexOfId from "./indexOfId";
 import "antd/dist/antd.css";
-import GraphEditor from "./GraphEditor";
+import MapEditor from "./editors/MapEditor";
+import AdsEditor from "./editors/AdsEditor";
+import FeedbackEditor from "./editors/FeedbackEditor";
+import HistoryEditor from "./editors/HistoryEditor";
+import IdeasEditor from "./editors/IdeasEditor";
+import ReportsEditor from "./editors/ReportsEditor";
+import UsersEditor from "./editors/UsersEditor";
 
 // TODO literally just kys
 // TODO start from scratch to better use firestore's abilities
@@ -32,7 +38,10 @@ const { Title } = Typography;
 
 function App(): JSX.Element {
   const [networkState, setNetworkState] = useState<TData>();
-  const [data, setData] = useState<TDataForm>();
+  const [data, setData] = useState<TDataForm>({
+    locations: [],
+    items: [],
+  });
   const [history, setHistory] = useState<TDataForm[]>();
   const [pane, setPane] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -43,6 +52,10 @@ function App(): JSX.Element {
   const windowDims = useWindowDims();
 
   const pathRef = useRef<Input>(null);
+
+  function update(data: TDataForm) {
+    return;
+  }
 
   // useEffect(() => {
   //   // Load data from firestore and process it to match the Forms
@@ -97,7 +110,6 @@ function App(): JSX.Element {
   //         (e) => console.log(e)
   //       );
   // });
-
 
   // function updateData(
   //   update: TLocationForm | TItemForm,
@@ -616,29 +628,32 @@ function App(): JSX.Element {
 
   return (
     <Tabs defaultActiveKey="map">
-      <Tabs.TabPane tab="Map" key="map">
-        <GraphEditor data={data} update={update} />
-      </Tabs.TabPane>
-      <Tabs.TabPane tab="Ads" key="ads">
-        <AdsEditor data={data} update={update} />
-      </Tabs.TabPane>
-      <Tabs.TabPane tab="Users" key="users">
-        <UsersEditor data={data} update={update} />
-      </Tabs.TabPane>
-      <Tabs.TabPane tab="Feedback" key="feedback">
-        <FeedbackEditor data={data} update={update} />
-      </Tabs.TabPane>
-      <Tabs.TabPane tab="Suggestions" key="suggestions">
-        <SuggestionsEditor data={data} update={update} />
-      </Tabs.TabPane>
-      <Tabs.TabPane tab="Reports" key="reports">
-        <ReportsEditor data={data} update={update} />
-      </Tabs.TabPane>
-      <Tabs.TabPane tab="History" key="history">
-        <HistoryEditor data={data} update={update} />
-      </Tabs.TabPane>
+      {data && (
+        <>
+          <Tabs.TabPane tab="Map" key="map">
+            <MapEditor data={data} update={update} />
+          </Tabs.TabPane>
+          <Tabs.TabPane tab="Ads" key="ads">
+            <AdsEditor data={data} update={update} />
+          </Tabs.TabPane>
+          <Tabs.TabPane tab="Users" key="users">
+            <UsersEditor data={data} update={update} />
+          </Tabs.TabPane>
+          <Tabs.TabPane tab="Feedback" key="feedback">
+            <FeedbackEditor data={data} update={update} />
+          </Tabs.TabPane>
+          <Tabs.TabPane tab="Suggestions" key="suggestions">
+            <IdeasEditor data={data} update={update} />
+          </Tabs.TabPane>
+          <Tabs.TabPane tab="Reports" key="reports">
+            <ReportsEditor data={data} update={update} />
+          </Tabs.TabPane>
+          <Tabs.TabPane tab="History" key="history">
+            <HistoryEditor data={data} update={update} />
+          </Tabs.TabPane>
+        </>
+      )}
     </Tabs>
-    
   );
 }
 

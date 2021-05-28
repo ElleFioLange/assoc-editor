@@ -7,6 +7,7 @@ type TImage = {
   type: "image";
   id: string;
   name: string;
+  uri: string;
   width: number;
   height: number;
 };
@@ -15,8 +16,10 @@ type TVideo = {
   type: "video";
   id: string;
   name: string;
+  posterUri: string;
   posterWidth: number;
   posterHeight: number;
+  videoUri: string;
   videoWidth: number;
   videoHeight: number;
 };
@@ -26,42 +29,33 @@ type TMap = {
   id: string;
   name: string;
   description: string;
-  coord: [number, number];
+  latitude: number;
+  longitude: number;
   viewDelta: number;
 };
 
 type TContent = TImage | TVideo | TMap;
 type ContentType = "image" | "video" | "map";
 
-type TAdvertiserInfo = {
-  name: string;
-  id: string;
-  ads: string[];
-};
-
-type TAdInfo = {
-  advertiser: TAdvertiserInfo;
-  ad: string[] | Record<string[], number>;
-};
-
 type TConnection = {
   id: string;
   key: string;
   preReqs?: string[];
   isSource: boolean;
+  ownerId: string;
   partnerId: string;
-  adInfo?: TAdInfo;
+  ad?: [string, string] | [string, string, number][];
 };
 
 type TItem = {
   id: string;
   name: string;
   description: string;
-  locationId: string;
-  locationName: string;
+  aiPrompt: string;
+  parentId: string;
+  parentName: string;
   connections: TConnection[];
   content: TContent[];
-  minDist: Record<string, number>;
   link?: string;
 };
 
@@ -69,17 +63,19 @@ type TLocation = {
   id: string;
   name: string;
   description: string;
+  minD: Record<string, number>;
   items: string[];
 };
 
 type TData = {
-  graph: {
-    locations: TLocation[];
-    items: TItem[];
-  };
-  ads: TAdInfo[];
-  users: TUserData[];
-
+  locations: Record<string, TLocation>;
+  items: Record<string, TItem>;
+  advertisers: Record<string, TAdvertiser>;
+  users: Record<string, TUserData>;
+  ads: Record<string, TAd>;
+  feedback: Record<string, TFeedback>;
+  ideas: Record<string, TIdea>;
+  reports: Record<string, TReport>;
 };
 
 // ============== LOCAL MAP ===============
@@ -110,13 +106,12 @@ type TMapForm = {
   id: string;
   name: string;
   description: string;
-  coord: [number, number];
+  latitude: number;
+  longitude: number;
   viewDelta: number;
 };
 
 type TContentForm = TImageForm | TVideoForm | TMapForm;
-
-// No TAdvertiserInfoForm or TAdInfoForm bc they are redundant
 
 type TConnectionForm = {
   id: string;
@@ -124,14 +119,15 @@ type TConnectionForm = {
   preReqs?: string[];
   isSource: boolean;
   partnerId: string;
-  adInfo?: TAdInfoForm;
+  ad?: [string, string] | [string, string, number][];
 };
 
 type TItemForm = {
   id: string;
   name: string;
   description: string;
-  locationId: string;
+  aiPrompt: string;
+  parentId: string;
   connections: TConnectionForm[];
   content: TContentForm[];
   link?: string;
@@ -145,8 +141,8 @@ type TLocationForm = {
 };
 
 type TDataForm = {
-  locations: TLocationForm[];
-  items: TItemForm[];
+  locations: TLocation[];
+  items: TItem[];
 };
 
 // ============== GRAPH ===============
@@ -163,6 +159,18 @@ type TLink = { source: string; target: string; group: string };
 
 // ============== OTHER ===============
 
+type TAdvertiser = {
+  id: string;
+  ads: string[];
+  property: string[];
+};
+
+type TAd = {
+  id: string;
+  advertiserId: string;
+  connections: (string | [string, number])[];
+};
+
 type TFeedback = {
   id: string;
   email: string;
@@ -174,21 +182,23 @@ type TFeedback = {
 
 type TIdea = TFeedback;
 
-type TAdvertiser = {
+type TReport = {
   id: string;
-  ads: string[];
-  property: string[];
-};
-
-type TAd = {
-  id: string;
-  advertiserId: string;
-  connection: string;
+  reportingUserId: string;
+  reportedUserId: string;
+  code: string;
 };
 
 type TUserData = {
   id: string;
+  email: string;
+  name: string;
+  birthday: Date;
+  curLocationId: string;
+  lastFeedbackReward: string;
+  reports: string[];
+  locations: Record<string, string[]>;
   items: Record<string, string[]>;
   tokens: number;
-  birthday: Date;
+  saved: Record<string, boolean>;
 };

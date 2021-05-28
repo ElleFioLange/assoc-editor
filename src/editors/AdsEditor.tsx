@@ -1,12 +1,20 @@
 import React, { useState } from "react";
 import { Layout, Typography } from "antd";
 
-export default function GraphEditor({ data, update }: {
+export default function GraphEditor({
+  data,
+  update,
+}: {
   data: TDataForm;
-  
-})
+  update: (newData: TDataForm) => void;
+}): JSX.Element {
+  return (
+    <Typography.Title>Ahhhh it&apos;s unfinished ahhhhhh</Typography.Title>
+  );
+}
 
-{/* <Layout style={{ height: "100vh" }}>
+{
+  /* <Layout style={{ height: "100vh" }}>
       <Sider
         width={SIDER_WIDTH}
         theme="light"
@@ -115,4 +123,5 @@ export default function GraphEditor({ data, update }: {
           />
         </Content>
       </Layout>
-    </Layout> */}
+    </Layout> */
+}
