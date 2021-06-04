@@ -20,12 +20,6 @@ firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
 firebase.firestore().settings({
   ignoreUndefinedProperties: true,
 });
-firebase
-  .auth()
-  .signInWithEmailAndPassword(
-    "sage.fio.lange@gmail.com",
-    "uncutgemswasafuckingmasterpiece"
-  );
 
 ReactDOM.render(
   <React.StrictMode>

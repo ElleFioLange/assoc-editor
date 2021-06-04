@@ -4,7 +4,17 @@ const fs = window.require("fs");
 const deepEqual = window.require("deep-equal");
 import firebase from "firebase";
 import Graph from "node-dijkstra";
-import { Menu, Layout, Typography, Space, Input, message, Tabs } from "antd";
+import {
+  Menu,
+  Layout,
+  Typography,
+  Button,
+  Space,
+  Input,
+  message,
+  Tabs,
+  Modal,
+} from "antd";
 import {
   LoadingOutlined,
   PlusSquareOutlined,
@@ -21,12 +31,12 @@ import useWindowDims from "./useWindowDims";
 import indexOfId from "./indexOfId";
 import "antd/dist/antd.css";
 import MapEditor from "./editors/MapEditor";
-import AdsEditor from "./editors/AdsEditor";
-import FeedbackEditor from "./editors/FeedbackEditor";
-import HistoryEditor from "./editors/HistoryEditor";
-import IdeasEditor from "./editors/IdeasEditor";
-import ReportsEditor from "./editors/ReportsEditor";
-import UsersEditor from "./editors/UsersEditor";
+// import AdsEditor from "./editors/AdsEditor";
+// import FeedbackEditor from "./editors/FeedbackEditor";
+// import HistoryEditor from "./editors/HistoryEditor";
+// import IdeasEditor from "./editors/IdeasEditor";
+// import ReportsEditor from "./editors/ReportsEditor";
+// import UsersEditor from "./editors/UsersEditor";
 
 // TODO literally just kys
 // TODO start from scratch to better use firestore's abilities
@@ -37,12 +47,12 @@ const { Content, Sider } = Layout;
 const { Title } = Typography;
 
 function App(): JSX.Element {
-  const [networkState, setNetworkState] = useState<TData>();
-  const [data, setData] = useState<TDataForm>({
-    locations: [],
-    items: [],
-  });
-  const [history, setHistory] = useState<TDataForm[]>();
+  const [login, setLogin] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(false);
+  const userRef = useRef<Input>(null);
+  const passwordRef = useRef<Input>(null);
+  const [networkState, setNetworkState] = useState<TNetworkData>();
+  // const [history, setHistory] = useState<TDataForm[]>();
   const [pane, setPane] = useState("");
   const [uploading, setUploading] = useState(false);
   const [filePath, setFilePath] = useState(
@@ -53,63 +63,64 @@ function App(): JSX.Element {
 
   const pathRef = useRef<Input>(null);
 
-  function update(data: TDataForm) {
+  function update(newMap: TMapDataForm) {
     return;
   }
 
-  // useEffect(() => {
-  //   // Load data from firestore and process it to match the Forms
-  //   if (!data)
-  //     firebase
-  //       .firestore()
-  //       .collection("master")
-  //       .get()
-  //       .then(
-  //         (snapshot) => {
-  //           const raw: TLocation[] = [];
-  //           snapshot.forEach((doc) => {
-  //             raw.push(doc.data() as TLocation);
-  //           });
-  //           setNetworkState([...raw]);
-  //           const processed = raw.map((location) => ({
-  //             ...location,
-  //             items: Object.values(location.items).map((item) => ({
-  //               id: item.id,
-  //               name: item.name,
-  //               description: item.description,
-  //               parentId: item.parentId,
-  //               connections: Object.values(item.connections),
-  //               content: item.content.map((content) => {
-  //                 switch (content.type) {
-  //                   case "image":
-  //                     return {
-  //                       ...content,
-  //                       changed: false,
-  //                     };
-  //                   case "video":
-  //                     return {
-  //                       ...content,
-  //                       changed: false,
-  //                     };
-  //                   case "map":
-  //                     return {
-  //                       ...content,
-  //                       changed: false,
-  //                     };
-  //                 }
-  //               }),
-  //             })),
-  //             minD: undefined,
-  //           }));
-  //           setData([...processed]);
-  //           setInitialData([...processed]);
-  //           processed.forEach((location) => {
-  //             location.items.forEach((item) => updateItemLookUp(item));
-  //           });
-  //         },
-  //         (e) => console.log(e)
-  //       );
-  // });
+  useEffect(() => {
+    console.log(map);
+    // Load data from firestore and process it to match the Forms
+    if (!map.items.test)
+      firebase
+        .firestore()
+        .collection("map")
+        .get()
+        .then(
+          (snapshot) => {
+            const raw: TLocation[] = [];
+            snapshot.forEach((doc) => {
+              raw.push(doc.data() as TLocation);
+            });
+            setNetworkState([...raw]);
+            const processed = raw.map((location) => ({
+              ...location,
+              items: Object.values(location.items).map((item) => ({
+                id: item.id,
+                name: item.name,
+                description: item.description,
+                parentId: item.parentId,
+                connections: Object.values(item.connections),
+                content: item.content.map((content) => {
+                  switch (content.type) {
+                    case "image":
+                      return {
+                        ...content,
+                        changed: false,
+                      };
+                    case "video":
+                      return {
+                        ...content,
+                        changed: false,
+                      };
+                    case "map":
+                      return {
+                        ...content,
+                        changed: false,
+                      };
+                  }
+                }),
+              })),
+              minD: undefined,
+            }));
+            setData([...processed]);
+            setInitialData([...processed]);
+            processed.forEach((location) => {
+              location.items.forEach((item) => updateItemLookUp(item));
+            });
+          },
+          (e) => console.error(e)
+        );
+  });
 
   // function updateData(
   //   update: TLocationForm | TItemForm,
@@ -317,40 +328,6 @@ function App(): JSX.Element {
   //     setSelected("new-location");
   //     setData(newData);
   //   }
-  // }
-
-  // function processData(data: TLocationForm[]): {
-  //   nodes: TNode[];
-  //   links: TLink[];
-  // } {
-  //   const nodes: TNode[] = [];
-  //   const links: TLink[] = [];
-  //   data.forEach((location) => {
-  //     nodes.push({
-  //       id: location.id,
-  //       name: location.name,
-  //       group: location.id,
-  //       location: true,
-  //     });
-  //     location.items.forEach((item) => {
-  //       nodes.push({ id: item.id, name: item.name, group: location.id });
-  //       links.push({
-  //         source: location.id,
-  //         target: item.id,
-  //         group: location.id,
-  //       });
-  //       item.connections.forEach((connection) => {
-  //         if (connection.isSource)
-  //           links.push({
-  //             source: item.id,
-  //             target: connection.partnerId,
-  //             group: location.id,
-  //           });
-  //       });
-  //     });
-  //   });
-
-  //   return { nodes, links };
   // }
 
   // function Editor({ selected }: { selected: string }): JSX.Element | null {
@@ -627,33 +604,86 @@ function App(): JSX.Element {
   // }
 
   return (
-    <Tabs defaultActiveKey="map">
-      {data && (
-        <>
-          <Tabs.TabPane tab="Map" key="map">
-            <MapEditor data={data} update={update} />
-          </Tabs.TabPane>
-          <Tabs.TabPane tab="Ads" key="ads">
-            <AdsEditor data={data} update={update} />
-          </Tabs.TabPane>
-          <Tabs.TabPane tab="Users" key="users">
-            <UsersEditor data={data} update={update} />
-          </Tabs.TabPane>
-          <Tabs.TabPane tab="Feedback" key="feedback">
-            <FeedbackEditor data={data} update={update} />
-          </Tabs.TabPane>
-          <Tabs.TabPane tab="Suggestions" key="suggestions">
-            <IdeasEditor data={data} update={update} />
-          </Tabs.TabPane>
-          <Tabs.TabPane tab="Reports" key="reports">
-            <ReportsEditor data={data} update={update} />
-          </Tabs.TabPane>
-          <Tabs.TabPane tab="History" key="history">
-            <HistoryEditor data={data} update={update} />
-          </Tabs.TabPane>
-        </>
-      )}
-    </Tabs>
+    <>
+      <Tabs
+        defaultActiveKey="map"
+        tabBarExtraContent={{
+          left: (
+            <Button
+              style={{ marginRight: 16, marginLeft: 16 }}
+              onClick={() => {
+                if (loggedIn) {
+                  firebase
+                    .auth()
+                    .signOut()
+                    .then(() => {
+                      setLogin(false);
+                    })
+                    .catch((error) => {
+                      console.error(error);
+                      message.error("Error signing out");
+                    });
+                } else {
+                  setLogin(true);
+                }
+              }}
+            >
+              {loggedIn ? "Log Out" : "Log In"}
+            </Button>
+          ),
+        }}
+      >
+        {map && (
+          <>
+            {/* <Tabs.TabPane tab="Map" key="map">
+              <MapEditor {...{ map, update }} />
+            </Tabs.TabPane> */}
+            {/* <Tabs.TabPane tab="Ads" key="ads">
+              <AdsEditor data={data} update={update} />
+            </Tabs.TabPane>
+            <Tabs.TabPane tab="Users" key="users">
+              <UsersEditor data={data} update={update} />
+            </Tabs.TabPane>
+            <Tabs.TabPane tab="Feedback" key="feedback">
+              <FeedbackEditor data={data} update={update} />
+            </Tabs.TabPane>
+            <Tabs.TabPane tab="Suggestions" key="suggestions">
+              <IdeasEditor data={data} update={update} />
+            </Tabs.TabPane>
+            <Tabs.TabPane tab="Reports" key="reports">
+              <ReportsEditor data={data} update={update} />
+            </Tabs.TabPane>
+            <Tabs.TabPane tab="History" key="history">
+              <HistoryEditor data={data} update={update} />
+            </Tabs.TabPane> */}
+          </>
+        )}
+      </Tabs>
+      <Modal
+        title="Login"
+        visible={login}
+        onCancel={() => setLogin(false)}
+        onOk={() => {
+          firebase
+            .auth()
+            .signInWithEmailAndPassword(
+              userRef.current?.state.value,
+              passwordRef.current?.state.value
+            )
+            .then(() => {
+              setLoggedIn(true);
+              setLogin(false);
+            })
+            .catch((error) => {
+              console.error(error);
+              message.error("Error logging in");
+            });
+        }}
+      >
+        <Input style={{ marginBottom: 16 }} ref={userRef} />
+        <Input ref={passwordRef} />
+      </Modal>
+    </>
   );
 }
 

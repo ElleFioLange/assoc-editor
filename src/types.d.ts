@@ -3,28 +3,31 @@ declare module "indexOfId";
 
 // ============== NETWORK MAP ===============
 
-type TImage = {
+type TNetworkImage = {
   type: "image";
   id: string;
   name: string;
   uri: string;
+  ext: string;
   width: number;
   height: number;
 };
 
-type TVideo = {
+type TNetworkVideo = {
   type: "video";
   id: string;
   name: string;
   posterUri: string;
+  posterExt: string;
   posterWidth: number;
   posterHeight: number;
   videoUri: string;
+  videoExt: string;
   videoWidth: number;
   videoHeight: number;
 };
 
-type TMap = {
+type TNetworkMap = {
   type: "map";
   id: string;
   name: string;
@@ -34,53 +37,41 @@ type TMap = {
   viewDelta: number;
 };
 
-type TContent = TImage | TVideo | TMap;
+type TNetworkContent = TNetworkImage | TNetworkVideo | TNetworkMap;
 type ContentType = "image" | "video" | "map";
 
-type TConnection = {
+type TNetworkConnection = {
   id: string;
   key: string;
   preReqs?: string[];
   isSource: boolean;
-  ownerId: string;
   partnerId: string;
-  ad?: [string, string] | [string, string, number][];
+  ad?: [{ adId: string; advertiserId: string }] | [string, string, number][];
 };
 
-type TItem = {
+type TNetworkItem = {
   id: string;
   name: string;
   description: string;
   aiPrompt: string;
   parentId: string;
   parentName: string;
-  connections: TConnection[];
-  content: TContent[];
+  connections: import("firebase").default.firestore.DocumentReference<TNetworkConnection>[];
+  content: TNetworkContent[];
   link?: string;
 };
 
-type TLocation = {
+type TNetworkLocation = {
   id: string;
   name: string;
   description: string;
   minD: Record<string, number>;
-  items: string[];
-};
-
-type TData = {
-  locations: Record<string, TLocation>;
-  items: Record<string, TItem>;
-  advertisers: Record<string, TAdvertiser>;
-  users: Record<string, TUserData>;
-  ads: Record<string, TAd>;
-  feedback: Record<string, TFeedback>;
-  ideas: Record<string, TIdea>;
-  reports: Record<string, TReport>;
+  items: import("firebase").default.firestore.DocumentReference<TNetworkItem>[];
 };
 
 // ============== LOCAL MAP ===============
 
-type TImageForm = {
+type TLocalImage = {
   changed: boolean;
   type: "image";
   id: string;
@@ -89,7 +80,7 @@ type TImageForm = {
   height: number;
 };
 
-type TVideoForm = {
+type TLocalVideo = {
   changed: boolean;
   type: "video";
   id: string;
@@ -100,7 +91,7 @@ type TVideoForm = {
   videoHeight: number;
 };
 
-type TMapForm = {
+type TLocalMap = {
   changed: boolean;
   type: "map";
   id: string;
@@ -111,9 +102,9 @@ type TMapForm = {
   viewDelta: number;
 };
 
-type TContentForm = TImageForm | TVideoForm | TMapForm;
+type TLocalContent = TLocalImage | TLocalVideo | TLocalMap;
 
-type TConnectionForm = {
+type TLocalConnection = {
   id: string;
   key: string;
   preReqs?: string[];
@@ -122,42 +113,25 @@ type TConnectionForm = {
   ad?: [string, string] | [string, string, number][];
 };
 
-type TItemForm = {
+type TLocalItem = {
   id: string;
   name: string;
   description: string;
   aiPrompt: string;
   parentId: string;
-  connections: TConnectionForm[];
-  content: TContentForm[];
+  connections: string[];
+  content: TLocalContent[];
   link?: string;
 };
 
-type TLocationForm = {
+type TLocalLocation = {
   id: string;
   name: string;
   description: string;
   items: string[];
 };
 
-type TDataForm = {
-  locations: TLocation[];
-  items: TItem[];
-};
-
-// ============== GRAPH ===============
-
-type TNode = {
-  id: string;
-  name: string;
-  group: string;
-  location?: boolean;
-  color?: string;
-};
-
-type TLink = { source: string; target: string; group: string };
-
-// ============== OTHER ===============
+// ============== DATA & FORMS ===============
 
 type TAdvertiser = {
   id: string;
@@ -187,6 +161,7 @@ type TReport = {
   reportingUserId: string;
   reportedUserId: string;
   code: string;
+  timeStamp: Date;
 };
 
 type TUserData = {
@@ -200,5 +175,23 @@ type TUserData = {
   locations: Record<string, string[]>;
   items: Record<string, string[]>;
   tokens: number;
-  saved: Record<string, boolean>;
+  saved: Record<string, Date>;
 };
+
+type TMapData = {
+  locations: Record<string, TLocalLocation>;
+  items: Record<string, TLocalItem>;
+  connections: Record<string, TLocalConnection>;
+};
+
+// ============== GRAPH ===============
+
+type TNode = {
+  id: string;
+  name: string;
+  group: string;
+  location?: boolean;
+  color?: string;
+};
+
+type TLink = { source: string; target: string; group: string };
