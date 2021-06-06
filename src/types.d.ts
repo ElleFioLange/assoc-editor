@@ -27,7 +27,7 @@ type TNetworkVideo = {
   videoHeight: number;
 };
 
-type TNetworkMap = {
+type TNetworkCoord = {
   type: "map";
   id: string;
   name: string;
@@ -37,15 +37,15 @@ type TNetworkMap = {
   viewDelta: number;
 };
 
-type TNetworkContent = TNetworkImage | TNetworkVideo | TNetworkMap;
+type TNetworkContent = TNetworkImage | TNetworkVideo | TNetworkCoord;
 type ContentType = "image" | "video" | "map";
 
 type TNetworkConnection = {
   id: string;
   key: string;
   preReqs?: string[];
-  isSource: boolean;
-  partnerId: string;
+  sourceId: string;
+  targetId: string;
   ad?: [{ adId: string; advertiserId: string }] | [string, string, number][];
 };
 
@@ -54,8 +54,8 @@ type TNetworkItem = {
   name: string;
   description: string;
   aiPrompt: string;
-  parentId: string;
-  parentName: string;
+  locationId: string;
+  locationName: string;
   connections: import("firebase").default.firestore.DocumentReference<TNetworkConnection>[];
   content: TNetworkContent[];
   link?: string;
@@ -76,6 +76,7 @@ type TLocalImage = {
   type: "image";
   id: string;
   name: string;
+  ext: string;
   width: number;
   height: number;
 };
@@ -85,13 +86,15 @@ type TLocalVideo = {
   type: "video";
   id: string;
   name: string;
+  posterExt: string;
   posterWidth: number;
   posterHeight: number;
+  videoExt: string;
   videoWidth: number;
   videoHeight: number;
 };
 
-type TLocalMap = {
+type TLocalCoord = {
   changed: boolean;
   type: "map";
   id: string;
@@ -102,24 +105,27 @@ type TLocalMap = {
   viewDelta: number;
 };
 
-type TLocalContent = TLocalImage | TLocalVideo | TLocalMap;
+type TLocalContent = TLocalImage | TLocalVideo | TLocalCoord;
 
-type TLocalConnection = {
+type TLocalConnection = TNetworkConnection;
+
+// To make entering connections simpler the forms have a different data struct
+type TConnectionForm = {
   id: string;
   key: string;
   preReqs?: string[];
-  isSource: boolean;
   partnerId: string;
-  ad?: [string, string] | [string, string, number][];
-};
+  isSource: boolean;
+  ad?: [{ adId: string; advertiserId: string }] | [string, string, number][];
+}
 
 type TLocalItem = {
   id: string;
   name: string;
   description: string;
   aiPrompt: string;
-  parentId: string;
-  connections: string[];
+  locationId: string;
+  connections: Record<string, TLocalConnection>;
   content: TLocalContent[];
   link?: string;
 };
@@ -128,10 +134,16 @@ type TLocalLocation = {
   id: string;
   name: string;
   description: string;
-  items: string[];
+  items: Record<string, TLocalItem>;
 };
 
-// ============== DATA & FORMS ===============
+// ============== OTHER DATA STRUCTS ===============
+
+type TMap = {
+  locations: Record<string, TLocalLocation>;
+  items: Record<string, TLocalItem>;
+  connections: Record<string, TLocalConnection>;
+};
 
 type TAdvertiser = {
   id: string;
@@ -153,8 +165,6 @@ type TFeedback = {
   timeStamp: Date;
   message: string;
 };
-
-type TIdea = TFeedback;
 
 type TReport = {
   id: string;
@@ -178,13 +188,19 @@ type TUserData = {
   saved: Record<string, Date>;
 };
 
-type TMapData = {
-  locations: Record<string, TLocalLocation>;
-  items: Record<string, TLocalItem>;
-  connections: Record<string, TLocalConnection>;
+type TCallbacks = {
+  uploadCB: () => void;
+  downloadCB: () => void;
+  checkCB: () => void;
+  undoCB: () => void;
 };
 
-// ============== GRAPH ===============
+// ============== GRAPH & SELECTION ===============
+
+type TSelection = {
+  type: "location" | "item" | "connection";
+  id: string;
+};
 
 type TNode = {
   id: string;

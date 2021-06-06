@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 const fs = window.require("fs");
 const deepEqual = window.require("deep-equal");
+const { dialog } = window.require("electron").remote;
 import firebase from "firebase";
 import Graph from "node-dijkstra";
 import {
@@ -17,11 +18,13 @@ import {
 } from "antd";
 import {
   LoadingOutlined,
-  PlusSquareOutlined,
   UploadOutlined,
-  SyncOutlined,
   LoginOutlined,
+  LogoutOutlined,
+  SafetyCertificateOutlined,
   UndoOutlined,
+  FolderOpenOutlined,
+  DownloadOutlined,
 } from "@ant-design/icons";
 import { v4 as uuid } from "uuid";
 // import { LocationEditor, ItemEditor } from "./Editors";
@@ -51,76 +54,138 @@ function App(): JSX.Element {
   const [loggedIn, setLoggedIn] = useState(false);
   const userRef = useRef<Input>(null);
   const passwordRef = useRef<Input>(null);
-  const [networkState, setNetworkState] = useState<TNetworkData>();
+  // const [networkState, setNetworkState] = useState<TNetworkData>();
   // const [history, setHistory] = useState<TDataForm[]>();
-  const [pane, setPane] = useState("");
   const [uploading, setUploading] = useState(false);
   const [filePath, setFilePath] = useState(
     "/Users/sage/Google Drive/ASSOC CONTENT"
   );
-
-  const windowDims = useWindowDims();
-
-  const pathRef = useRef<Input>(null);
-
-  function update(newMap: TMapDataForm) {
-    return;
-  }
+  const [networkMap, setNetworkMap] = useState<TMap>();
+  const [localMap, setLocalMap] = useState<TMap>();
 
   useEffect(() => {
-    console.log(map);
-    // Load data from firestore and process it to match the Forms
-    if (!map.items.test)
-      firebase
-        .firestore()
-        .collection("map")
-        .get()
-        .then(
-          (snapshot) => {
-            const raw: TLocation[] = [];
+    const fetchData = async () => {
+      if (!localMap) {
+        console.log("huh");
+        const locations: Record<string, TLocalLocation> = {};
+        await firebase
+          .firestore()
+          .collection("locations")
+          .get()
+          .then((snapshot) => {
             snapshot.forEach((doc) => {
-              raw.push(doc.data() as TLocation);
+              const location = doc.data() as TNetworkLocation;
+              locations[location.id] = {
+                ...location,
+                items: {},
+              };
             });
-            setNetworkState([...raw]);
-            const processed = raw.map((location) => ({
-              ...location,
-              items: Object.values(location.items).map((item) => ({
-                id: item.id,
-                name: item.name,
-                description: item.description,
-                parentId: item.parentId,
-                connections: Object.values(item.connections),
-                content: item.content.map((content) => {
-                  switch (content.type) {
-                    case "image":
-                      return {
-                        ...content,
-                        changed: false,
-                      };
-                    case "video":
-                      return {
-                        ...content,
-                        changed: false,
-                      };
-                    case "map":
-                      return {
-                        ...content,
-                        changed: false,
-                      };
-                  }
-                }),
-              })),
-              minD: undefined,
-            }));
-            setData([...processed]);
-            setInitialData([...processed]);
-            processed.forEach((location) => {
-              location.items.forEach((item) => updateItemLookUp(item));
+          });
+        const items: Record<string, TLocalItem> = {};
+        await firebase
+          .firestore()
+          .collection("items")
+          .get()
+          .then((snapshot) => {
+            snapshot.forEach((doc) => {
+              const networkItem = doc.data() as TNetworkItem;
+              const localItem = {
+                ...networkItem,
+                connections: {},
+                content: networkItem.content.map((c) => ({
+                  ...c,
+                  changed: false,
+                })),
+              };
+              items[localItem.id] = localItem;
+              locations[localItem.locationId].items[localItem.id] = localItem;
             });
-          },
-          (e) => console.error(e)
-        );
-  });
+          });
+        const connections: Record<string, TLocalConnection> = {};
+        await firebase
+          .firestore()
+          .collection("connections")
+          .get()
+          .then((snapshot) => {
+            snapshot.forEach((doc) => {
+              const connection = doc.data() as TNetworkConnection;
+              connections[connection.id] = connection;
+              // Push connection id to the source's and target's connections prop
+              items[connection.sourceId].connections[connection.id] =
+                connection;
+              items[connection.targetId].connections[connection.id] =
+                connection;
+            });
+          });
+        setLocalMap({ locations, items, connections });
+        setNetworkMap({ locations, items, connections });
+      }
+    };
+    fetchData();
+  }, [loggedIn]);
+
+  // const windowDims = useWindowDims();
+
+  // const pathRef = useRef<Input>(null);
+
+  // function update(newMap: TMapDataForm) {
+  //   return;
+  // }
+
+  // useEffect(() => {
+  //   console.log(map);
+  //   // Load data from firestore and process it to match the Forms
+  //   if (!map.items.test)
+  //     firebase
+  //       .firestore()
+  //       .collection("map")
+  //       .get()
+  //       .then(
+  //         (snapshot) => {
+  //           const raw: TLocation[] = [];
+  //           snapshot.forEach((doc) => {
+  //             raw.push(doc.data() as TLocation);
+  //           });
+  //           setNetworkState([...raw]);
+  //           const processed = raw.map((location) => ({
+  //             ...location,
+  //             items: Object.values(location.items).map((item) => ({
+  //               id: item.id,
+  //               name: item.name,
+  //               description: item.description,
+  //               parentId: item.parentId,
+  //               connections: Object.values(item.connections),
+  //               content: item.content.map((content) => {
+  //                 switch (content.type) {
+  //                   case "image":
+  //                     return {
+  //                       ...content,
+  //                       changed: false,
+  //                     };
+  //                   case "video":
+  //                     return {
+  //                       ...content,
+  //                       changed: false,
+  //                     };
+  //                   case "map":
+  //                     return {
+  //                       ...content,
+  //                       changed: false,
+  //                     };
+  //                 }
+  //               }),
+  //             })),
+  //             minD: undefined,
+  //           }));
+  //           setData([...processed]);
+  //           setInitialData([...processed]);
+  //           processed.forEach((location) => {
+  //             location.items.forEach((item) => updateItemLookUp(item));
+  //           });
+  //         },
+  //         (e) => console.error(e)
+  //       );
+  // });
 
   // function updateData(
   //   update: TLocationForm | TItemForm,
@@ -603,62 +668,89 @@ function App(): JSX.Element {
   //     });
   // }
 
+  function loadFilePath() {
+    const path = dialog.showOpenDialogSync({
+      properties: ["openDirectory"],
+    }) as string[] | undefined;
+    if (path) {
+      setFilePath(path[0]);
+      message.success(path[0]);
+    }
+  }
+
   return (
-    <>
-      <Tabs
-        defaultActiveKey="map"
-        tabBarExtraContent={{
-          left: (
-            <Button
-              style={{ marginRight: 16, marginLeft: 16 }}
-              onClick={() => {
-                if (loggedIn) {
-                  firebase
-                    .auth()
-                    .signOut()
-                    .then(() => {
-                      setLogin(false);
-                    })
-                    .catch((error) => {
-                      console.error(error);
-                      message.error("Error signing out");
-                    });
-                } else {
-                  setLogin(true);
-                }
-              }}
-            >
-              {loggedIn ? "Log Out" : "Log In"}
-            </Button>
-          ),
-        }}
-      >
-        {map && (
-          <>
-            {/* <Tabs.TabPane tab="Map" key="map">
-              <MapEditor {...{ map, update }} />
-            </Tabs.TabPane> */}
-            {/* <Tabs.TabPane tab="Ads" key="ads">
-              <AdsEditor data={data} update={update} />
-            </Tabs.TabPane>
-            <Tabs.TabPane tab="Users" key="users">
-              <UsersEditor data={data} update={update} />
-            </Tabs.TabPane>
-            <Tabs.TabPane tab="Feedback" key="feedback">
-              <FeedbackEditor data={data} update={update} />
-            </Tabs.TabPane>
-            <Tabs.TabPane tab="Suggestions" key="suggestions">
-              <IdeasEditor data={data} update={update} />
-            </Tabs.TabPane>
-            <Tabs.TabPane tab="Reports" key="reports">
-              <ReportsEditor data={data} update={update} />
-            </Tabs.TabPane>
-            <Tabs.TabPane tab="History" key="history">
-              <HistoryEditor data={data} update={update} />
-            </Tabs.TabPane> */}
-          </>
-        )}
-      </Tabs>
+    <Layout
+      style={{ backgroundColor: "white", height: "100vh", overflow: "auto" }}
+    >
+      <Sider width={450} collapsed={true} style={{ backgroundColor: "white" }}>
+        <Menu selectable={false}>
+          <Menu.Item
+            icon={uploading ? <LoadingOutlined /> : <UploadOutlined />}
+            title="Upload"
+          />
+          <Menu.Item icon={<SafetyCertificateOutlined />} title="Check" />
+          <Menu.Item icon={<UndoOutlined />} title="Undo" />
+          <Menu.Item
+            icon={<FolderOpenOutlined />}
+            title={filePath}
+            onClick={loadFilePath}
+          />
+        </Menu>
+      </Sider>
+      <Content>
+        <Tabs
+          defaultActiveKey="map"
+          tabBarExtraContent={{
+            left: (
+              <Button
+                style={{ marginRight: 16, marginLeft: 16 }}
+                onClick={() => {
+                  if (loggedIn) {
+                    firebase
+                      .auth()
+                      .signOut()
+                      .then(() => {
+                        setLoggedIn(false);
+                        message.success("Logged out");
+                      })
+                      .catch((error) => {
+                        console.error(error);
+                        message.error("Error logging out");
+                      });
+                  } else {
+                    setLogin(true);
+                  }
+                }}
+                icon={loggedIn ? <LogoutOutlined /> : <LoginOutlined />}
+              >
+                {loggedIn ? "Log Out" : "Log In"}
+              </Button>
+            ),
+          }}
+        >
+          <Tabs.TabPane tab="Map" key="map">
+            <MapEditor {...{ localMap, setLocalMap, filePath, loggedIn }} />
+          </Tabs.TabPane>
+          {/* <Tabs.TabPane tab="Ads" key="ads">
+            <AdsEditor data={data} update={update} />
+          </Tabs.TabPane>
+          <Tabs.TabPane tab="Users" key="users">
+            <UsersEditor data={data} update={update} />
+          </Tabs.TabPane>
+          <Tabs.TabPane tab="Feedback" key="feedback">
+            <FeedbackEditor data={data} update={update} />
+          </Tabs.TabPane>
+          <Tabs.TabPane tab="Suggestions" key="suggestions">
+            <IdeasEditor data={data} update={update} />
+          </Tabs.TabPane>
+          <Tabs.TabPane tab="Reports" key="reports">
+            <ReportsEditor data={data} update={update} />
+          </Tabs.TabPane>
+          <Tabs.TabPane tab="History" key="history">
+            <HistoryEditor data={data} update={update} />
+          </Tabs.TabPane> */}
+        </Tabs>
+      </Content>
       <Modal
         title="Login"
         visible={login}
@@ -673,6 +765,7 @@ function App(): JSX.Element {
             .then(() => {
               setLoggedIn(true);
               setLogin(false);
+              message.success("Logged in");
             })
             .catch((error) => {
               console.error(error);
@@ -683,7 +776,7 @@ function App(): JSX.Element {
         <Input style={{ marginBottom: 16 }} ref={userRef} />
         <Input ref={passwordRef} />
       </Modal>
-    </>
+    </Layout>
   );
 }
 

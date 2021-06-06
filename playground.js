@@ -1,3 +1,11 @@
-const a = [];
+const a = {
+  a: 1,
+  b: 2,
+  c: 3,
+};
 
-if (a.length) console.log("hello");
+console.log(a);
+delete a.a;
+console.log(a);
+delete a.d;
+console.log(a);
