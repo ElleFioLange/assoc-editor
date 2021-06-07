@@ -18,8 +18,6 @@ import {
   Upload,
   InputNumber,
 } from "antd";
-import firebase from "firebase/app";
-import "firebase/firestore";
 import {
   EditOutlined,
   MinusCircleOutlined,
@@ -40,6 +38,7 @@ import useWindowDims from "../useWindowDims";
 import { RcFile } from "antd/lib/upload";
 import { mapEventHandler } from "google-maps-react";
 import indexOfId from "../indexOfId";
+import Item from "antd/lib/list/Item";
 
 const { Sider, Content } = Layout;
 const { Title } = Typography;
@@ -52,7 +51,7 @@ export default function GraphEditor({
   filePath,
   loggedIn,
 }: {
-  localMap: TMap | undefined;
+  localMap: TMap;
   setLocalMap: React.Dispatch<React.SetStateAction<TMap | undefined>>;
   filePath: string;
   loggedIn: boolean;
@@ -115,85 +114,74 @@ export default function GraphEditor({
     return { nodes, links };
   }
 
-  function addConnection(connection: TLocalConnection, mapState: TMap) {
-    const newMap = { ...mapState };
-    const source = newMap.items[connection.sourceId];
-    const target = newMap.items[connection.targetId];
-    if (source && !source.connections[connection.id])
-      source.connections[connection.id] = connection;
-    if (source && !target.connections[connection.id])
-      target.connections[connection.id] = connection;
-    newMap.connections[connection.id] = connection;
-    return newMap;
-  }
+  function ConnectionForm({
+    data,
+    onFinish,
+  }: {
+    data: string | TConnectionForm;
+    onFinish?: () => void;
+  }) {
+    const [form] = Form.useForm();
 
-  function deleteConnection(connection: TLocalConnection, mapState: TMap) {
-    const newMap = { ...mapState };
-    delete newMap.items[connection.sourceId].connections[connection.id];
-    delete newMap.items[connection.targetId].connections[connection.id];
-    delete newMap.connections[connection.id];
-    return newMap;
-  }
+    const formData =
+      typeof data === "string"
+        ? {
+            id: data,
+          }
+        : {
+            ...data,
+            partnerId: data.isSource
+              ? localMap.connections[data.id].targetId
+              : localMap.connections[data.id].sourceId,
+          };
 
-  function addItem(item: TLocalItem, mapState: TMap) {
-    let newMap = { ...mapState };
-    // If the item existed previously then make sure to delete any removed connections
-    if (newMap.items[item.id]) {
-      const prev = newMap.items[item.id];
-      Object.values(prev.connections).forEach((connection) => {
-        if (!Object.keys(item.connections).includes(connection.id)) {
-          newMap = deleteConnection(connection, newMap);
-        }
-      });
-    }
-    // Write in new item and any new or changed connections
-    Object.values(item.connections).forEach(
-      (connection) => (newMap = addConnection(connection, newMap))
+    return (
+      <Form
+        form={form}
+        layout="vertical"
+        name="connectionForm"
+        initialValues={formData}
+      >
+        <Form.Item name="id" hidden />
+        <Space style={{ marginBottom: 16 }}>Id: {formData.id}</Space>
+        <Form.Item
+          name="isSource"
+          rules={[{ required: true }]}
+          valuePropName="checked"
+          initialValue={false}
+        >
+          <Checkbox>Source?</Checkbox>
+        </Form.Item>
+        <Form.Item
+          label="Partner"
+          name="partnerId"
+          rules={[{ required: true }]}
+        >
+          <Select
+            placeholder="partner"
+            showSearch
+            options={
+              localMap
+                ? Object.values(localMap.items).map((item) => ({
+                    label: item.name,
+                    value: item.id,
+                  }))
+                : undefined
+            }
+            filterOption={(input, option) =>
+              option
+                ? option.value.name
+                    .toLowerCase()
+                    .indexOf(input.toLowerCase()) >= 0
+                : false
+            }
+          />
+        </Form.Item>
+        <Form.Item name="key" label="Key" rules={[{ required: true }]}>
+          <Input placeholder="key" />
+        </Form.Item>
+      </Form>
     );
-    newMap.items[item.id] = item;
-    return newMap;
-  }
-
-  function deleteItem(item: TLocalItem, mapState: TMap) {
-    let newMap = { ...mapState };
-    Object.values(item.connections).forEach(
-      (connection) => (newMap = deleteConnection(connection, newMap))
-    );
-    delete newMap.locations[item.locationId].items[item.id];
-    delete newMap.items[item.id];
-    return newMap;
-  }
-
-  function addLocation(location: TLocalLocation, mapState: TMap) {
-    let newMap = { ...mapState };
-    // If the location existed previously then make sure to delete any removed items
-    if (newMap.locations[location.id]) {
-      const prev = newMap.locations[location.id];
-      Object.values(prev.items).forEach((item) => {
-        if (!Object.keys(location.items).includes(item.id)) {
-          newMap = deleteItem(item, newMap);
-        }
-      });
-    }
-    // Write in new location and any new or changed items
-    Object.values(location.items).forEach((item) => {
-      newMap = addItem(item, newMap);
-    });
-    newMap.locations[location.id] = location;
-    return newMap;
-  }
-
-  function deleteLocation(location: TLocalLocation, mapState: TMap) {
-    let newMap = { ...mapState };
-    Object.values(location.items).forEach((item) => {
-      newMap = deleteItem(item, newMap);
-    });
-    delete newMap.locations[location.id];
-    return newMap;
-  }
-
-  function ConnectionForm() {
-    return null;
   }
 
   function ContentForm({
@@ -437,8 +425,10 @@ export default function GraphEditor({
           type="primary"
           block
           onClick={() => {
-            form.submit();
-            onFinish();
+            form.validateFields().then(() => {
+              form.submit();
+              onFinish();
+            });
           }}
         >
           Submit
@@ -451,12 +441,28 @@ export default function GraphEditor({
     data,
     onFinish,
   }: {
-    data: { id: string; locationId: string } | TLocalItem;
+    data: { id: string; locationId: string } | TItemForm;
     onFinish?: () => void;
   }): JSX.Element {
     const [form] = Form.useForm();
 
+    const [connectionForm, setConnectionForm] =
+      useState<string | TConnectionForm>();
     const [contentForm, setContentForm] = useState<string | TLocalContent>();
+
+    const formData =
+      "description" in data
+        ? {
+            ...data,
+            connections: data.connections.map((c) => {
+              const connection = localMap.connections[c.id];
+              return {
+                ...connection,
+                ...c,
+              };
+            }),
+          }
+        : { ...data };
 
     return (
       <Form.Provider
@@ -466,6 +472,7 @@ export default function GraphEditor({
               const { itemForm } = forms;
               const content = itemForm.getFieldValue("content") || [];
               const index = indexOfId(content, values.id);
+              console.log(values);
               if (index === undefined)
                 itemForm.setFieldsValue({
                   content: [...content, values],
@@ -488,16 +495,14 @@ export default function GraphEditor({
                   if (!connection.id) connection.id = uuid();
                 });
                 const content = itemForm.getFieldValue("content") || [];
+                console.log(connections);
                 const item = {
                   ...values,
-                  connections: Object.fromEntries(
-                    connections.map((connection) => [connection.id, connection])
-                  ),
+                  connections: connections.map((connection) => connection.id),
                   content,
                   locationId: data.locationId,
-                } as TLocalItem;
-                const newMap = localMap ? addItem(item, localMap) : localMap;
-                setLocalMap(newMap);
+                } as unknown as TLocalItem;
+                console.log(item);
               }
             }
           }
@@ -507,17 +512,14 @@ export default function GraphEditor({
           form={form}
           layout="vertical"
           name="itemForm"
-          initialValues={typeof data === "string" ? undefined : data}
+          initialValues={formData}
         >
-          <Form.Item
-            name="id"
-            initialValue={typeof data === "string" ? data : data.id}
-            hidden
-          />
-          <Space style={{ marginBottom: 16 }}>
-            Id: {typeof data === "string" ? data : data.id}
-          </Space>
+          <Form.Item name="id" initialValue={formData.id} hidden />
+          <Space style={{ marginBottom: 16 }}>Id: {formData.id}</Space>
           <Form.Item name="name" label="Name" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="link" label="Link">
             <Input />
           </Form.Item>
           <Form.Item
@@ -527,61 +529,57 @@ export default function GraphEditor({
           >
             <TextArea rows={6} />
           </Form.Item>
-          <Form.Item label="Connections">
-            <Form.List name="connections">
-              {(fields, { add, remove }) => (
-                <>
-                  {fields.map(({ key, name, fieldKey, ...restField }) => (
-                    <Space
-                      key={key}
-                      style={{ display: "flex", marginBottom: 8 }}
-                      align="baseline"
-                    >
-                      <Form.Item
-                        {...restField}
-                        name={[name, "isSource"]}
-                        fieldKey={[fieldKey, "isSource"]}
-                        rules={[{ required: true }]}
-                        valuePropName="checked"
-                        initialValue={false}
-                      >
-                        <Checkbox>Source?</Checkbox>
-                      </Form.Item>
-                      <Form.Item
-                        {...restField}
-                        name={[name, "partnerId"]}
-                        fieldKey={[fieldKey, "partnerId"]}
-                        rules={[{ required: true }]}
-                      >
-                        <Input placeholder="partnerId" />
-                      </Form.Item>
-                      <Form.Item
-                        {...restField}
-                        name={[name, "key"]}
-                        fieldKey={[fieldKey, "key"]}
-                        rules={[{ required: true }]}
-                      >
-                        <Input placeholder="key" />
-                      </Form.Item>
+          <Form.Item
+            name="aiPrompt"
+            label="AI Prompt"
+            rules={[{ required: true }]}
+          >
+            <TextArea rows={6} />
+          </Form.Item>
+          <Form.Item
+            label="Connections"
+            shouldUpdate={(prevValues, curValues) =>
+              prevValues.content !== curValues.content
+            }
+          >
+            {({ getFieldValue, setFieldsValue }) => {
+              const connections: TConnectionForm[] =
+                getFieldValue("connections") || [];
+              return connections.length ? (
+                <ul>
+                  {connections.map((connection, index) => (
+                    <li key={index} style={{ marginBottom: 8 }}>
+                      {localMap.items[connection.partnerId].name} -{" "}
+                      {localMap.connections[connection.id].key}
+                      <Button
+                        style={{ marginLeft: 12 }}
+                        icon={<EditOutlined />}
+                        onClick={() => setConnectionForm(connection)}
+                      />
                       <Button
                         style={{ marginLeft: 12 }}
                         icon={<MinusCircleOutlined />}
-                        onClick={() => remove(name)}
+                        onClick={() => {
+                          const newConnections = [...connections];
+                          newConnections.splice(index, 1);
+                          setFieldsValue({ content: newConnections });
+                        }}
                       />
-                    </Space>
+                    </li>
                   ))}
-                  <Button
-                    type="dashed"
-                    onClick={() => add()}
-                    block
-                    icon={<PlusCircleOutlined />}
-                  >
-                    Add connection
-                  </Button>
-                </>
-              )}
-            </Form.List>
+                </ul>
+              ) : null;
+            }}
           </Form.Item>
+          <Button
+            style={{ marginBottom: 12 }}
+            type="dashed"
+            block
+            icon={<PlusCircleOutlined />}
+            onClick={() => setConnectionForm(uuid())}
+          >
+            Add Connection
+          </Button>
           <Form.Item
             label="Content"
             shouldUpdate={(prevValues, curValues) =>
@@ -680,14 +678,30 @@ export default function GraphEditor({
             type="primary"
             block
             onClick={() => {
-              form.submit();
-              if (onFinish) onFinish();
+              form.validateFields().then(() => {
+                form.submit();
+                if (onFinish) onFinish();
+              });
             }}
             style={{ marginBottom: 16 }}
           >
             Submit
           </Button>
         </Form>
+        {connectionForm && (
+          <Modal
+            title="New Connection"
+            visible={true}
+            width={"auto"}
+            style={{ top: 12 }}
+            onCancel={() => setConnectionForm(undefined)}
+          >
+            <ConnectionForm
+              data={connectionForm}
+              onFinish={() => setConnectionForm(undefined)}
+            />
+          </Modal>
+        )}
         {contentForm && (
           <Modal
             title="New Content"
@@ -709,20 +723,14 @@ export default function GraphEditor({
   function LocationForm({
     data,
   }: {
-    data: string | TLocalLocation;
+    data: string | TLocationForm;
   }): JSX.Element {
     const [form] = Form.useForm();
 
     const [itemForm, setItemForm] =
-      useState<{ id: string; locationId: string } | TLocalItem>();
+      useState<{ id: string; locationId: string } | TItemForm>();
 
-    const formData =
-      typeof data === "string"
-        ? { id: data }
-        : {
-            ...data,
-            items: Object.values(data.items),
-          };
+    const formData = typeof data === "string" ? { id: data } : data;
 
     return (
       <div style={{ margin: 8, overflow: "auto" }}>
@@ -736,36 +744,18 @@ export default function GraphEditor({
                 const { locationForm } = forms;
                 const items =
                   (locationForm.getFieldValue("items") as TLocalItem[]) || [];
+                console.log(items);
                 const location = {
                   ...values,
-                  items: Object.fromEntries(
-                    items.map((item) => [item.id, item])
-                  ),
+                  items,
                 } as unknown as TLocalLocation;
-                const newMap = localMap
-                  ? addLocation(location, localMap)
-                  : localMap;
-                console.log(newMap);
-                setLocalMap(newMap);
+
                 break;
               }
               case "itemForm": {
                 const { locationForm, itemForm } = forms;
                 const items = locationForm.getFieldValue("items") || [];
-                const formConnections =
-                  itemForm.getFieldValue("connections") || [];
-                const connections: TLocalConnection[] = formConnections.map(
-                  (connection: TConnectionForm) => ({
-                    ...connection,
-                    id: connection.id || uuid(),
-                    sourceId: connection.isSource
-                      ? values.id
-                      : connection.partnerId,
-                    targetId: connection.isSource
-                      ? connection.partnerId
-                      : values.id,
-                  })
-                );
+                const connections = itemForm.getFieldValue("connections") || [];
                 const content = itemForm.getFieldValue("content") || [];
                 const index = indexOfId(items, values.id);
                 if (index === undefined) {
@@ -814,7 +804,7 @@ export default function GraphEditor({
               }
             >
               {({ getFieldValue, setFieldsValue }) => {
-                const items: TLocalItem[] = getFieldValue("items") || [];
+                const items: TItemForm[] = getFieldValue("items") || [];
                 return items.length ? (
                   <ul>
                     {items.map((item, index) => (
@@ -868,7 +858,7 @@ export default function GraphEditor({
                 danger
                 block
                 onClick={() => {
-                  if (localMap) deleteLocation(data, localMap);
+                  // if (localMap) deleteLocation(data, localMap);
                 }}
                 style={{ marginBottom: 16 }}
               >
@@ -898,22 +888,40 @@ export default function GraphEditor({
   function Editor({ selected }: { selected: TSelection }): JSX.Element | null {
     if (localMap) {
       switch (selected.type) {
-        case "location":
+        case "location": {
+          const location = localMap.locations[selected.id];
+          const data: TLocationForm | string = location
+            ? {
+                ...location,
+                items: location.items.map((itemId) => {
+                  const item = localMap.items[itemId];
+                  return {
+                    ...item,
+                    connections: item.connections.map((connectionInfo) => {
+                      const connection =
+                        localMap.connections[connectionInfo.id];
+                      return {
+                        ...connection,
+                        ...connectionInfo,
+                        partnerId: connectionInfo.isSource
+                          ? connection.targetId
+                          : connection.sourceId,
+                      };
+                    }),
+                  };
+                }),
+              }
+            : uuid();
           return (
             <div style={{ margin: 8 }}>
-              <LocationForm data={localMap.locations[selected.id] || uuid()} />
+              <LocationForm data={data} />
             </div>
           );
+        }
         case "item":
           return (
             <div style={{ margin: 8 }}>
               <ItemForm data={localMap.items[selected.id]} />
-            </div>
-          );
-        case "connection":
-          return (
-            <div style={{ margin: 8 }}>
-              <ConnectionForm />
             </div>
           );
       }
@@ -965,10 +973,7 @@ export default function GraphEditor({
               if (node.id && localMap) {
                 if (localMap.locations[node.id])
                   setSelected({ type: "location", id: node.id as string });
-                else if (localMap.items[node.id])
-                  setSelected({ type: "item", id: node.id as string });
-                else if (localMap.connections[node.id])
-                  setSelected({ type: "connection", id: node.id as string });
+                else setSelected({ type: "item", id: node.id as string });
               }
             }}
             linkAutoColorBy="group"

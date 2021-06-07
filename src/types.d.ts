@@ -109,23 +109,14 @@ type TLocalContent = TLocalImage | TLocalVideo | TLocalCoord;
 
 type TLocalConnection = TNetworkConnection;
 
-// To make entering connections simpler the forms have a different data struct
-type TConnectionForm = {
-  id: string;
-  key: string;
-  preReqs?: string[];
-  partnerId: string;
-  isSource: boolean;
-  ad?: [{ adId: string; advertiserId: string }] | [string, string, number][];
-}
-
 type TLocalItem = {
   id: string;
   name: string;
   description: string;
   aiPrompt: string;
   locationId: string;
-  connections: Record<string, TLocalConnection>;
+  locationName: string;
+  connections: { id: string; isSource: boolean }[];
   content: TLocalContent[];
   link?: string;
 };
@@ -134,7 +125,37 @@ type TLocalLocation = {
   id: string;
   name: string;
   description: string;
-  items: Record<string, TLocalItem>;
+  items: string[];
+};
+
+// ============== FORMS ===============
+
+type TConnectionForm = {
+  id: string;
+  key: string;
+  preReqs?: string[];
+  isSource: boolean;
+  partnerId: string;
+  ad?: [{ adId: string; advertiserId: string }] | [string, string, number][];
+};
+
+type TItemForm = {
+  id: string;
+  name: string;
+  description: string;
+  aiPrompt: string;
+  locationId: string;
+  locationName: string;
+  connections: TConnectionForm[];
+  content: TLocalContent[];
+  link?: string;
+};
+
+type TLocationForm = {
+  id: string;
+  name: string;
+  description: string;
+  items: TItemForm[];
 };
 
 // ============== OTHER DATA STRUCTS ===============
@@ -188,17 +209,10 @@ type TUserData = {
   saved: Record<string, Date>;
 };
 
-type TCallbacks = {
-  uploadCB: () => void;
-  downloadCB: () => void;
-  checkCB: () => void;
-  undoCB: () => void;
-};
-
 // ============== GRAPH & SELECTION ===============
 
 type TSelection = {
-  type: "location" | "item" | "connection";
+  type: "location" | "item";
   id: string;
 };
 

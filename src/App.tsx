@@ -77,7 +77,7 @@ function App(): JSX.Element {
               const location = doc.data() as TNetworkLocation;
               locations[location.id] = {
                 ...location,
-                items: {},
+                items: [],
               };
             });
           });
@@ -91,14 +91,14 @@ function App(): JSX.Element {
               const networkItem = doc.data() as TNetworkItem;
               const localItem = {
                 ...networkItem,
-                connections: {},
+                connections: [],
                 content: networkItem.content.map((c) => ({
                   ...c,
                   changed: false,
                 })),
               };
               items[localItem.id] = localItem;
-              locations[localItem.locationId].items[localItem.id] = localItem;
+              locations[localItem.locationId].items.push(localItem.id);
             });
           });
         const connections: Record<string, TLocalConnection> = {};
@@ -110,11 +110,14 @@ function App(): JSX.Element {
             snapshot.forEach((doc) => {
               const connection = doc.data() as TNetworkConnection;
               connections[connection.id] = connection;
-              // Push connection id to the source's and target's connections prop
-              items[connection.sourceId].connections[connection.id] =
-                connection;
-              items[connection.targetId].connections[connection.id] =
-                connection;
+              items[connection.sourceId].connections.push({
+                id: connection.id,
+                isSource: true,
+              });
+              items[connection.targetId].connections.push({
+                id: connection.id,
+                isSource: false,
+              });
             });
           });
         setLocalMap({ locations, items, connections });
@@ -729,7 +732,9 @@ function App(): JSX.Element {
           }}
         >
           <Tabs.TabPane tab="Map" key="map">
-            <MapEditor {...{ localMap, setLocalMap, filePath, loggedIn }} />
+            {localMap && (
+              <MapEditor {...{ localMap, setLocalMap, filePath, loggedIn }} />
+            )}
           </Tabs.TabPane>
           {/* <Tabs.TabPane tab="Ads" key="ads">
             <AdsEditor data={data} update={update} />
