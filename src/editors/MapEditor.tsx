@@ -114,6 +114,90 @@ export default function GraphEditor({
     return { nodes, links };
   }
 
+  function addConnection(
+    connection: TConnectionForm,
+    itemId: string,
+    mapState: TMap
+  ) {
+    const newMap = { ...mapState };
+    newMap.connections[connection.id] = {
+      ...connection,
+      sourceId: connection.isSource ? itemId : connection.partnerId,
+      targetId: connection.isSource ? connection.partnerId : itemId,
+    };
+    return newMap;
+  }
+
+  function deleteConnection(connection: TLocalConnection, mapState: TMap) {
+    const newMap = { ...mapState };
+    const source = newMap.items[connection.sourceId];
+    const target = newMap.items[connection.targetId];
+    source.connections.splice(indexOfId(source.connections, connection.id)!, 1);
+    target.connections.splice(indexOfId(target.connections, connection.id)!, 1);
+    delete newMap.connections[connection.id];
+    return newMap;
+  }
+
+  function addItem(item: TItemForm, mapState: TMap) {
+    let newMap = { ...mapState };
+    // If item existed previously then remove any deleted connections
+    if (newMap.items[item.id]) {
+      mapState.items[item.id].connections.forEach((connection) => {
+        if (indexOfId(item.connections, connection.id) === undefined)
+          newMap = deleteConnection(
+            mapState.connections[connection.id],
+            newMap
+          );
+      });
+    }
+    newMap.items[item.id] = {
+      ...item,
+      connections: item.connections.map(({ id, isSource }) => ({
+        id,
+        isSource,
+      })),
+    };
+    item.connections.forEach((connection) => {
+      newMap = addConnection(connection, item.id, newMap);
+    });
+    return newMap;
+  }
+
+  function deleteItem(item: TLocalItem, mapState: TMap) {
+    let newMap = { ...mapState };
+    item.connections.forEach((connectionInfo) => {
+      newMap = deleteConnection(
+        mapState.connections[connectionInfo.id],
+        newMap
+      );
+    });
+    newMap.locations[item.locationId].items.splice(
+      newMap.locations[item.locationId].items.indexOf(item.id),
+      1
+    );
+    delete newMap.items[item.id];
+    return newMap;
+  }
+
+  function addLocation(location: TLocationForm, mapState: TMap) {
+    let newMap = { ...mapState };
+    // If location existed previously then remove any deleted items
+    if (newMap.locations[location.id]) {
+      mapState.locations[location.id].items.forEach((itemId) => {
+        if (indexOfId(location.items, itemId) === undefined)
+          newMap = deleteItem(mapState.items[itemId], newMap);
+      });
+    }
+    newMap.locations[location.id] = {
+      ...location,
+      items: location.items.map(({ id }) => id),
+    };
+    location.items.forEach((item) => {
+      newMap = addItem(item, newMap);
+    });
+    return newMap;
+  }
+
   function ConnectionForm({
     data,
     onFinish,
@@ -163,23 +247,37 @@ export default function GraphEditor({
             options={
               localMap
                 ? Object.values(localMap.items).map((item) => ({
-                    label: item.name,
+                    label: `${item.name} - ${item.locationName} - ${item.id}`,
                     value: item.id,
                   }))
                 : undefined
             }
-            filterOption={(input, option) =>
-              option
-                ? option.value.name
+            filterOption={(input, option) => {
+              return option?.label
+                ? (option.label as string)
+                    .split(" - ")[0]
                     .toLowerCase()
                     .indexOf(input.toLowerCase()) >= 0
-                : false
-            }
+                : false;
+            }}
           />
         </Form.Item>
         <Form.Item name="key" label="Key" rules={[{ required: true }]}>
           <Input placeholder="key" />
         </Form.Item>
+        <Button
+          type="primary"
+          block
+          onClick={() => {
+            form.validateFields().then(() => {
+              form.submit();
+              if (onFinish) onFinish();
+            });
+          }}
+          style={{ marginBottom: 16 }}
+        >
+          Submit
+        </Button>
       </Form>
     );
   }
@@ -465,258 +563,272 @@ export default function GraphEditor({
         : { ...data };
 
     return (
-      <Form.Provider
-        onFormFinish={(name, { values, forms }) => {
-          switch (name) {
-            case "contentForm": {
-              const { itemForm } = forms;
-              const content = itemForm.getFieldValue("content") || [];
-              const index = indexOfId(content, values.id);
-              console.log(values);
-              if (index === undefined)
-                itemForm.setFieldsValue({
-                  content: [...content, values],
-                });
-              else {
-                const newContent = [...content];
-                newContent[index] = values;
-                itemForm.setFieldsValue({ content: newContent });
-              }
-              break;
-            }
-            case "itemForm": {
-              if (!onFinish) {
+      <div style={{ margin: 8, overflow: "auto", paddingBottom: 200 }}>
+        {!onFinish && <Title level={3}>Edit Item</Title>}
+        <Form.Provider
+          onFormFinish={(name, { values, forms }) => {
+            switch (name) {
+              case "contentForm": {
                 const { itemForm } = forms;
-                const connections =
-                  (itemForm.getFieldValue(
-                    "connections"
-                  ) as TLocalConnection[]) || [];
-                connections.forEach((connection) => {
-                  if (!connection.id) connection.id = uuid();
-                });
                 const content = itemForm.getFieldValue("content") || [];
-                console.log(connections);
-                const item = {
-                  ...values,
-                  connections: connections.map((connection) => connection.id),
-                  content,
-                  locationId: data.locationId,
-                } as unknown as TLocalItem;
-                console.log(item);
+                const index = indexOfId(content, values.id);
+                if (index === undefined)
+                  itemForm.setFieldsValue({
+                    content: [...content, values],
+                  });
+                else {
+                  const newContent = [...content];
+                  newContent[index] = values;
+                  itemForm.setFieldsValue({ content: newContent });
+                }
+                break;
+              }
+              case "connectionForm": {
+                const { itemForm } = forms;
+                const connections = itemForm.getFieldValue("connections") || [];
+                const index = indexOfId(connections, values.id);
+                if (index === undefined)
+                  itemForm.setFieldsValue({
+                    connections: [...connections, values],
+                  });
+                else {
+                  const newConnections = [...connections];
+                  newConnections[index] = values;
+                  itemForm.setFieldsValue({ connections: newConnections });
+                }
+                console.log(values);
+                break;
+              }
+              case "itemForm": {
+                if (!onFinish) {
+                  const { itemForm } = forms;
+                  const connections =
+                    (itemForm.getFieldValue(
+                      "connections"
+                    ) as TConnectionForm[]) || [];
+                  const content = itemForm.getFieldValue("content") || [];
+                  const item = {
+                    ...values,
+                    connections,
+                    content,
+                  } as unknown as TItemForm;
+                  const newMap = addItem(item, localMap);
+                  setLocalMap(newMap);
+                }
               }
             }
-          }
-        }}
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          name="itemForm"
-          initialValues={formData}
+          }}
         >
-          <Form.Item name="id" initialValue={formData.id} hidden />
-          <Space style={{ marginBottom: 16 }}>Id: {formData.id}</Space>
-          <Form.Item name="name" label="Name" rules={[{ required: true }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="link" label="Link">
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="description"
-            label="Description"
-            rules={[{ required: true }]}
+          <Form
+            form={form}
+            layout="vertical"
+            name="itemForm"
+            initialValues={formData}
           >
-            <TextArea rows={6} />
-          </Form.Item>
-          <Form.Item
-            name="aiPrompt"
-            label="AI Prompt"
-            rules={[{ required: true }]}
-          >
-            <TextArea rows={6} />
-          </Form.Item>
-          <Form.Item
-            label="Connections"
-            shouldUpdate={(prevValues, curValues) =>
-              prevValues.content !== curValues.content
-            }
-          >
-            {({ getFieldValue, setFieldsValue }) => {
-              const connections: TConnectionForm[] =
-                getFieldValue("connections") || [];
-              return connections.length ? (
-                <ul>
-                  {connections.map((connection, index) => (
-                    <li key={index} style={{ marginBottom: 8 }}>
-                      {localMap.items[connection.partnerId].name} -{" "}
-                      {localMap.connections[connection.id].key}
-                      <Button
-                        style={{ marginLeft: 12 }}
-                        icon={<EditOutlined />}
-                        onClick={() => setConnectionForm(connection)}
-                      />
-                      <Button
-                        style={{ marginLeft: 12 }}
-                        icon={<MinusCircleOutlined />}
-                        onClick={() => {
-                          const newConnections = [...connections];
-                          newConnections.splice(index, 1);
-                          setFieldsValue({ content: newConnections });
-                        }}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              ) : null;
-            }}
-          </Form.Item>
-          <Button
-            style={{ marginBottom: 12 }}
-            type="dashed"
-            block
-            icon={<PlusCircleOutlined />}
-            onClick={() => setConnectionForm(uuid())}
-          >
-            Add Connection
-          </Button>
-          <Form.Item
-            label="Content"
-            shouldUpdate={(prevValues, curValues) =>
-              prevValues.content !== curValues.content
-            }
-          >
-            {({ getFieldValue, setFieldsValue }) => {
-              const content: TLocalContent[] = getFieldValue("content") || [];
-              return content.length ? (
-                <ul>
-                  {content.map((item, index) => (
-                    <li key={index} style={{ marginBottom: 8 }}>
-                      {item.name} - {item.type}
-                      <Button
-                        style={{ marginLeft: 12 }}
-                        icon={<EditOutlined />}
-                        onClick={() => setContentForm(item)}
-                      />
-                      <Button
-                        style={{ marginLeft: 12 }}
-                        icon={
-                          content[index].changed ? (
-                            <ClockCircleFilled />
-                          ) : (
-                            <ClockCircleOutlined />
-                          )
-                        }
-                        onClick={() => {
-                          if ("connections" in data) {
-                            const newContent = [...content];
-                            newContent[index].changed =
-                              !newContent[index].changed;
-                            setFieldsValue({ content: newContent });
+            <Form.Item name="id" initialValue={formData.id} hidden />
+            <Space style={{ marginBottom: 16 }}>Id: {formData.id}</Space>
+            <Form.Item name="name" label="Name" rules={[{ required: true }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="link" label="Link">
+              <Input />
+            </Form.Item>
+            <Form.Item
+              name="description"
+              label="Description"
+              rules={[{ required: true }]}
+            >
+              <TextArea rows={6} />
+            </Form.Item>
+            <Form.Item
+              name="aiPrompt"
+              label="AI Prompt"
+              rules={[{ required: true }]}
+            >
+              <TextArea rows={6} />
+            </Form.Item>
+            <Form.Item
+              label="Connections"
+              shouldUpdate={(prevValues, curValues) =>
+                prevValues.connections !== curValues.connections
+              }
+            >
+              {({ getFieldValue, setFieldsValue }) => {
+                const connections: TConnectionForm[] =
+                  getFieldValue("connections") || [];
+                console.log(connections);
+                return connections.length ? (
+                  <ul>
+                    {connections.map((connection, index) => (
+                      <li key={index} style={{ marginBottom: 8 }}>
+                        {localMap.items[connection.partnerId].name}
+                        <Button
+                          style={{ marginLeft: 12 }}
+                          icon={<EditOutlined />}
+                          onClick={() => setConnectionForm(connection)}
+                        />
+                        <Button
+                          style={{ marginLeft: 12 }}
+                          icon={<MinusCircleOutlined />}
+                          onClick={() => {
+                            const newConnections = [...connections];
+                            newConnections.splice(index, 1);
+                            setFieldsValue({ content: newConnections });
+                          }}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                ) : null;
+              }}
+            </Form.Item>
+            <Button
+              style={{ marginBottom: 12 }}
+              type="dashed"
+              block
+              icon={<PlusCircleOutlined />}
+              onClick={() => setConnectionForm(uuid())}
+            >
+              Add Connection
+            </Button>
+            <Form.Item
+              label="Content"
+              shouldUpdate={(prevValues, curValues) =>
+                prevValues.content !== curValues.content
+              }
+            >
+              {({ getFieldValue, setFieldsValue }) => {
+                const content: TLocalContent[] = getFieldValue("content") || [];
+                return content.length ? (
+                  <ul>
+                    {content.map((contentItem, index) => (
+                      <li key={index} style={{ marginBottom: 8 }}>
+                        {contentItem.name} - {contentItem.type}
+                        <Button
+                          style={{ marginLeft: 12 }}
+                          icon={<EditOutlined />}
+                          onClick={() => setContentForm(contentItem)}
+                        />
+                        <Button
+                          style={{ marginLeft: 12 }}
+                          icon={
+                            content[index].changed ? (
+                              <ClockCircleFilled />
+                            ) : (
+                              <ClockCircleOutlined />
+                            )
                           }
-                        }}
-                      />
-                      <Button
-                        style={{ marginLeft: 12 }}
-                        icon={<UpOutlined />}
-                        onClick={() => {
-                          if (index != 0) {
+                          onClick={() => {
+                            if ("connections" in data) {
+                              const newContent = [...content];
+                              newContent[index].changed =
+                                !newContent[index].changed;
+                              setFieldsValue({ content: newContent });
+                            }
+                          }}
+                        />
+                        <Button
+                          style={{ marginLeft: 12 }}
+                          icon={<UpOutlined />}
+                          onClick={() => {
+                            if (index != 0) {
+                              const newContent = [...content];
+                              const item = newContent.splice(index, 1);
+                              newContent.splice(index - 1, 0, item[0]);
+                              setFieldsValue({ content: newContent });
+                            }
+                          }}
+                        />
+                        <Button
+                          style={{ marginLeft: 12 }}
+                          icon={<DownOutlined />}
+                          onClick={() => {
+                            if (index != content.length - 1) {
+                              const newContent = [...content];
+                              const item = newContent.splice(index, 1);
+                              newContent.splice(index + 1, 0, item[0]);
+                              setFieldsValue({ content: newContent });
+                            }
+                          }}
+                        />
+                        <Button
+                          style={{ marginLeft: 12 }}
+                          icon={<MinusCircleOutlined />}
+                          onClick={() => {
                             const newContent = [...content];
-                            const item = newContent.splice(index, 1);
-                            newContent.splice(index - 1, 0, item[0]);
+                            newContent.splice(index, 1);
                             setFieldsValue({ content: newContent });
-                          }
-                        }}
-                      />
-                      <Button
-                        style={{ marginLeft: 12 }}
-                        icon={<DownOutlined />}
-                        onClick={() => {
-                          if (index != content.length - 1) {
-                            const newContent = [...content];
-                            const item = newContent.splice(index, 1);
-                            newContent.splice(index + 1, 0, item[0]);
-                            setFieldsValue({ content: newContent });
-                          }
-                        }}
-                      />
-                      <Button
-                        style={{ marginLeft: 12 }}
-                        icon={<MinusCircleOutlined />}
-                        onClick={() => {
-                          const newContent = [...content];
-                          newContent.splice(index, 1);
-                          setFieldsValue({ content: newContent });
-                        }}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              ) : null;
-            }}
-          </Form.Item>
-          <Button
-            style={{ marginBottom: 12 }}
-            type="dashed"
-            block
-            icon={<PlusCircleOutlined />}
-            onClick={() => setContentForm(uuid())}
-          >
-            Add Content
-          </Button>
-          <Button
-            style={{ marginBottom: 12 }}
-            type="default"
-            icon={<FolderOpenOutlined />}
-            onClick={() =>
-              shell.openPath(`${filePath}/${data.locationId}/${data.id}`)
-            }
-          >
-            Open Content Folder
-          </Button>
-          <Button
-            type="primary"
-            block
-            onClick={() => {
-              form.validateFields().then(() => {
-                form.submit();
-                if (onFinish) onFinish();
-              });
-            }}
-            style={{ marginBottom: 16 }}
-          >
-            Submit
-          </Button>
-        </Form>
-        {connectionForm && (
-          <Modal
-            title="New Connection"
-            visible={true}
-            width={"auto"}
-            style={{ top: 12 }}
-            onCancel={() => setConnectionForm(undefined)}
-          >
-            <ConnectionForm
-              data={connectionForm}
-              onFinish={() => setConnectionForm(undefined)}
-            />
-          </Modal>
-        )}
-        {contentForm && (
-          <Modal
-            title="New Content"
-            visible={true}
-            width={"auto"}
-            style={{ top: 12 }}
-            onCancel={() => setContentForm(undefined)}
-          >
-            <ContentForm
-              data={contentForm}
-              onFinish={() => setContentForm(undefined)}
-            />
-          </Modal>
-        )}
-      </Form.Provider>
+                          }}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                ) : null;
+              }}
+            </Form.Item>
+            <Button
+              style={{ marginBottom: 12 }}
+              type="dashed"
+              block
+              icon={<PlusCircleOutlined />}
+              onClick={() => setContentForm(uuid())}
+            >
+              Add Content
+            </Button>
+            <Button
+              style={{ marginBottom: 12 }}
+              type="default"
+              icon={<FolderOpenOutlined />}
+              onClick={() =>
+                shell.openPath(`${filePath}/${data.locationId}/${data.id}`)
+              }
+            >
+              Open Content Folder
+            </Button>
+            <Button
+              type="primary"
+              block
+              onClick={() => {
+                form.validateFields().then(() => {
+                  form.submit();
+                  if (onFinish) onFinish();
+                });
+              }}
+              style={{ marginBottom: 16 }}
+            >
+              Submit
+            </Button>
+          </Form>
+          {connectionForm && (
+            <Modal
+              title="New Connection"
+              visible={true}
+              width={"auto"}
+              style={{ top: 12 }}
+              onCancel={() => setConnectionForm(undefined)}
+            >
+              <ConnectionForm
+                data={connectionForm}
+                onFinish={() => setConnectionForm(undefined)}
+              />
+            </Modal>
+          )}
+          {contentForm && (
+            <Modal
+              title="New Content"
+              visible={true}
+              width={"auto"}
+              style={{ top: 12 }}
+              onCancel={() => setContentForm(undefined)}
+            >
+              <ContentForm
+                data={contentForm}
+                onFinish={() => setContentForm(undefined)}
+              />
+            </Modal>
+          )}
+        </Form.Provider>
+      </div>
     );
   }
 
@@ -733,7 +845,7 @@ export default function GraphEditor({
     const formData = typeof data === "string" ? { id: data } : data;
 
     return (
-      <div style={{ margin: 8, overflow: "auto" }}>
+      <div style={{ margin: 8, overflow: "auto", paddingBottom: 200 }}>
         <Title level={3}>
           {typeof data === "string" ? "New" : "Edit"} Location
         </Title>
@@ -743,13 +855,13 @@ export default function GraphEditor({
               case "locationForm": {
                 const { locationForm } = forms;
                 const items =
-                  (locationForm.getFieldValue("items") as TLocalItem[]) || [];
-                console.log(items);
+                  (locationForm.getFieldValue("items") as TItemForm[]) || [];
                 const location = {
                   ...values,
                   items,
-                } as unknown as TLocalLocation;
-
+                } as unknown as TLocationForm;
+                const newMap = addLocation(location, localMap);
+                setLocalMap(newMap);
                 break;
               }
               case "itemForm": {
@@ -767,6 +879,7 @@ export default function GraphEditor({
                         connections,
                         content,
                         locationId: formData.id,
+                        locationName: locationForm.getFieldValue("name"),
                       },
                     ],
                   });
@@ -777,6 +890,7 @@ export default function GraphEditor({
                     connections,
                     content,
                     locationId: formData.id,
+                    locationName: locationForm.getFieldValue("name"),
                   };
                   locationForm.setFieldsValue({ items: newItems });
                 }
@@ -912,29 +1026,23 @@ export default function GraphEditor({
                 }),
               }
             : uuid();
-          return (
-            <div style={{ margin: 8 }}>
-              <LocationForm data={data} />
-            </div>
-          );
+          return <LocationForm data={data} />;
         }
         case "item":
-          return (
-            <div style={{ margin: 8 }}>
-              <ItemForm data={localMap.items[selected.id]} />
-            </div>
-          );
+          return <ItemForm data={localMap.items[selected.id]} />;
       }
     }
     return null;
   }
 
   return (
-    <Layout style={{ height: "auto", backgroundColor: "white" }}>
+    <Layout
+      style={{ height: "100vh", overflow: "scroll", backgroundColor: "white" }}
+    >
       <Sider
         width={450}
         theme="light"
-        style={{ height: "auto", overflow: "auto" }}
+        style={{ height: "100%", overflow: "auto" }}
       >
         <Menu selectable={false}>
           <Menu.Item

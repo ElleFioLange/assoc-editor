@@ -164,6 +164,7 @@ type TMap = {
   locations: Record<string, TLocalLocation>;
   items: Record<string, TLocalItem>;
   connections: Record<string, TLocalConnection>;
+  ads: Record<string, TAd>;
 };
 
 type TAdvertiser = {

@@ -120,8 +120,8 @@ function App(): JSX.Element {
               });
             });
           });
-        setLocalMap({ locations, items, connections });
-        setNetworkMap({ locations, items, connections });
+        setLocalMap({ locations, items, connections, ads: {} });
+        setNetworkMap({ locations, items, connections, ads: {} });
       }
     };
     fetchData();
@@ -703,6 +703,7 @@ function App(): JSX.Element {
       <Content>
         <Tabs
           defaultActiveKey="map"
+          style={{ height: "100vh" }}
           tabBarExtraContent={{
             left: (
               <Button
