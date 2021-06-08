@@ -733,9 +733,7 @@ function App(): JSX.Element {
           }}
         >
           <Tabs.TabPane tab="Map" key="map">
-            {localMap && (
-              <MapEditor {...{ localMap, setLocalMap, filePath, loggedIn }} />
-            )}
+            {localMap && <MapEditor {...{ localMap, setLocalMap, filePath }} />}
           </Tabs.TabPane>
           {/* <Tabs.TabPane tab="Ads" key="ads">
             <AdsEditor data={data} update={update} />

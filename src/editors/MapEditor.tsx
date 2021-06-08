@@ -3,6 +3,7 @@ const fs = window.require("fs");
 const ffprobe = window.require("ffprobe");
 const ffprobeStatic = window.require("ffprobe-static");
 const { shell } = window.require("electron");
+import { cloneDeep } from "lodash";
 import {
   Layout,
   Menu,
@@ -49,12 +50,10 @@ export default function GraphEditor({
   localMap,
   setLocalMap,
   filePath,
-  loggedIn,
 }: {
   localMap: TMap;
   setLocalMap: React.Dispatch<React.SetStateAction<TMap | undefined>>;
   filePath: string;
-  loggedIn: boolean;
 }): JSX.Element {
   // ------------------
   // const [networkMap, setNetworkMap] = useState<TMap>({
@@ -102,6 +101,8 @@ export default function GraphEditor({
         target: item.id,
         group: item.locationId,
       });
+      console.log(item.name);
+      console.log(item.locationId);
     });
     Object.values(connections).forEach((connection) =>
       links.push({
@@ -114,22 +115,31 @@ export default function GraphEditor({
     return { nodes, links };
   }
 
-  function addConnection(
-    connection: TConnectionForm,
-    itemId: string,
-    mapState: TMap
-  ) {
-    const newMap = { ...mapState };
+  function addConnection(connection: TConnectionForm, mapState: TMap) {
+    const newMap = cloneDeep(mapState);
+    const partner = newMap.items[connection.partnerId];
+    const index = indexOfId(partner.connections, connection.id);
+    if (index === undefined) {
+      partner.connections.push({
+        ...connection,
+        isSource: !connection.isSource,
+      });
+    } else {
+      partner.connections[index] = {
+        ...connection,
+        isSource: !connection.isSource,
+      };
+    }
     newMap.connections[connection.id] = {
       ...connection,
-      sourceId: connection.isSource ? itemId : connection.partnerId,
-      targetId: connection.isSource ? connection.partnerId : itemId,
+      sourceId: connection.isSource ? connection.ownerId : connection.partnerId,
+      targetId: connection.isSource ? connection.partnerId : connection.ownerId,
     };
     return newMap;
   }
 
   function deleteConnection(connection: TLocalConnection, mapState: TMap) {
-    const newMap = { ...mapState };
+    const newMap = cloneDeep(mapState);
     const source = newMap.items[connection.sourceId];
     const target = newMap.items[connection.targetId];
     source.connections.splice(indexOfId(source.connections, connection.id)!, 1);
@@ -150,6 +160,7 @@ export default function GraphEditor({
           );
       });
     }
+    console.log("sakjdflas");
     newMap.items[item.id] = {
       ...item,
       connections: item.connections.map(({ id, isSource }) => ({
@@ -158,8 +169,9 @@ export default function GraphEditor({
       })),
     };
     item.connections.forEach((connection) => {
-      newMap = addConnection(connection, item.id, newMap);
+      newMap = addConnection(connection, newMap);
     });
+    console.log("uioaewea");
     return newMap;
   }
 
@@ -180,7 +192,7 @@ export default function GraphEditor({
   }
 
   function addLocation(location: TLocationForm, mapState: TMap) {
-    let newMap = { ...mapState };
+    let newMap = cloneDeep(mapState);
     // If location existed previously then remove any deleted items
     if (newMap.locations[location.id]) {
       mapState.locations[location.id].items.forEach((itemId) => {
@@ -198,36 +210,46 @@ export default function GraphEditor({
     return newMap;
   }
 
+  function deleteLocation(location: TLocalLocation, mapState: TMap) {
+    let newMap = cloneDeep(mapState);
+    location.items.forEach((itemId) => {
+      newMap = deleteItem(mapState.items[itemId], newMap);
+    });
+    delete newMap.locations[location.id];
+    return newMap;
+  }
+
   function ConnectionForm({
     data,
     onFinish,
   }: {
-    data: string | TConnectionForm;
+    data: { id: string; ownerId: string } | TConnectionForm;
     onFinish?: () => void;
   }) {
     const [form] = Form.useForm();
 
-    const formData =
-      typeof data === "string"
-        ? {
-            id: data,
-          }
-        : {
-            ...data,
-            partnerId: data.isSource
-              ? localMap.connections[data.id].targetId
-              : localMap.connections[data.id].sourceId,
-          };
+    // const formData =
+    //   typeof data === "string"
+    //     ? {
+    //         id: data,
+    //       }
+    //     : {
+    //         ...data,
+    //         partnerId: data.isSource
+    //           ? localMap.connections[data.id].targetId
+    //           : localMap.connections[data.id].sourceId,
+    //       };
 
     return (
       <Form
         form={form}
         layout="vertical"
         name="connectionForm"
-        initialValues={formData}
+        initialValues={data}
       >
         <Form.Item name="id" hidden />
-        <Space style={{ marginBottom: 16 }}>Id: {formData.id}</Space>
+        <Form.Item name="ownerId" hidden />
+        <Space style={{ marginBottom: 16 }}>Id: {data.id}</Space>
         <Form.Item
           name="isSource"
           rules={[{ required: true }]}
@@ -246,19 +268,25 @@ export default function GraphEditor({
             showSearch
             options={
               localMap
-                ? Object.values(localMap.items).map((item) => ({
+                ? Object.values(localMap.items)
+                    .filter((item) => item.id !== data.ownerId)
+                    .map((item) => ({
                     label: `${item.name} - ${item.locationName} - ${item.id}`,
                     value: item.id,
                   }))
                 : undefined
             }
             filterOption={(input, option) => {
-              return option?.label
-                ? (option.label as string)
-                    .split(" - ")[0]
-                    .toLowerCase()
-                    .indexOf(input.toLowerCase()) >= 0
-                : false;
+              if (option?.label) {
+                const identifiers = (option.label as string).split(" - ");
+                const normalized = input.toLowerCase();
+                return (
+                  identifiers[0].toLowerCase().indexOf(normalized) >= 0 ||
+                  identifiers[1].toLowerCase().indexOf(normalized) >= 0 ||
+                  identifiers[2].toLowerCase().indexOf(normalized) >= 0
+                );
+              }
+              return false;
             }}
           />
         </Form.Item>
@@ -545,7 +573,7 @@ export default function GraphEditor({
     const [form] = Form.useForm();
 
     const [connectionForm, setConnectionForm] =
-      useState<string | TConnectionForm>();
+      useState<{ id: string; ownerId: string } | TConnectionForm>();
     const [contentForm, setContentForm] = useState<string | TLocalContent>();
 
     const formData =
@@ -596,7 +624,6 @@ export default function GraphEditor({
                   newConnections[index] = values;
                   itemForm.setFieldsValue({ connections: newConnections });
                 }
-                console.log(values);
                 break;
               }
               case "itemForm": {
@@ -612,7 +639,9 @@ export default function GraphEditor({
                     connections,
                     content,
                   } as unknown as TItemForm;
+                  console.log(localMap);
                   const newMap = addItem(item, localMap);
+                  console.log(newMap);
                   setLocalMap(newMap);
                 }
               }
@@ -625,7 +654,9 @@ export default function GraphEditor({
             name="itemForm"
             initialValues={formData}
           >
-            <Form.Item name="id" initialValue={formData.id} hidden />
+            <Form.Item name="id" hidden />
+            <Form.Item name="locationId" hidden />
+            <Form.Item name="locationName" hidden />
             <Space style={{ marginBottom: 16 }}>Id: {formData.id}</Space>
             <Form.Item name="name" label="Name" rules={[{ required: true }]}>
               <Input />
@@ -656,7 +687,6 @@ export default function GraphEditor({
               {({ getFieldValue, setFieldsValue }) => {
                 const connections: TConnectionForm[] =
                   getFieldValue("connections") || [];
-                console.log(connections);
                 return connections.length ? (
                   <ul>
                     {connections.map((connection, index) => (
@@ -673,7 +703,7 @@ export default function GraphEditor({
                           onClick={() => {
                             const newConnections = [...connections];
                             newConnections.splice(index, 1);
-                            setFieldsValue({ content: newConnections });
+                            setFieldsValue({ connections: newConnections });
                           }}
                         />
                       </li>
@@ -687,7 +717,9 @@ export default function GraphEditor({
               type="dashed"
               block
               icon={<PlusCircleOutlined />}
-              onClick={() => setConnectionForm(uuid())}
+              onClick={() =>
+                setConnectionForm({ id: uuid(), ownerId: formData.id })
+              }
             >
               Add Connection
             </Button>
@@ -856,11 +888,16 @@ export default function GraphEditor({
                 const { locationForm } = forms;
                 const items =
                   (locationForm.getFieldValue("items") as TItemForm[]) || [];
+                items.forEach((item) => {
+                  item.locationName = locationForm.getFieldValue("name");
+                });
                 const location = {
                   ...values,
                   items,
                 } as unknown as TLocationForm;
+                console.log(localMap);
                 const newMap = addLocation(location, localMap);
+                console.log(newMap);
                 setLocalMap(newMap);
                 break;
               }
@@ -878,8 +915,6 @@ export default function GraphEditor({
                         ...values,
                         connections,
                         content,
-                        locationId: formData.id,
-                        locationName: locationForm.getFieldValue("name"),
                       },
                     ],
                   });
@@ -889,8 +924,6 @@ export default function GraphEditor({
                     ...values,
                     connections,
                     content,
-                    locationId: formData.id,
-                    locationName: locationForm.getFieldValue("name"),
                   };
                   locationForm.setFieldsValue({ items: newItems });
                 }
@@ -972,7 +1005,11 @@ export default function GraphEditor({
                 danger
                 block
                 onClick={() => {
-                  // if (localMap) deleteLocation(data, localMap);
+                  const newMap = deleteLocation(
+                    localMap.locations[data.id],
+                    localMap
+                  );
+                  setLocalMap(newMap);
                 }}
                 style={{ marginBottom: 16 }}
               >

@@ -56,7 +56,7 @@ type TNetworkItem = {
   aiPrompt: string;
   locationId: string;
   locationName: string;
-  connections: import("firebase").default.firestore.DocumentReference<TNetworkConnection>[];
+  connections: Record<string, TNetworkConnection>;
   content: TNetworkContent[];
   link?: string;
 };
@@ -66,7 +66,7 @@ type TNetworkLocation = {
   name: string;
   description: string;
   minD: Record<string, number>;
-  items: import("firebase").default.firestore.DocumentReference<TNetworkItem>[];
+  items: Record<string, TNetworkItem>;
 };
 
 // ============== LOCAL MAP ===============
@@ -135,6 +135,7 @@ type TConnectionForm = {
   key: string;
   preReqs?: string[];
   isSource: boolean;
+  ownerId: string;
   partnerId: string;
   ad?: [{ adId: string; advertiserId: string }] | [string, string, number][];
 };
