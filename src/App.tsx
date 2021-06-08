@@ -41,8 +41,10 @@ import MapEditor from "./editors/MapEditor";
 // import ReportsEditor from "./editors/ReportsEditor";
 // import UsersEditor from "./editors/UsersEditor";
 
-// TODO literally just kys
-// TODO start from scratch to better use firestore's abilities
+// TODO Users
+// TODO Ads
+// TODO Feedback
+// TODO Reports
 
 const SIDER_WIDTH = 450;
 
@@ -77,6 +79,7 @@ function App(): JSX.Element {
               const location = doc.data() as TNetworkLocation;
               locations[location.id] = {
                 ...location,
+                changed: false,
                 items: [],
               };
             });
@@ -91,10 +94,13 @@ function App(): JSX.Element {
               const networkItem = doc.data() as TNetworkItem;
               const localItem = {
                 ...networkItem,
+                changed: false,
                 connections: [],
                 content: networkItem.content.map((c) => ({
                   ...c,
                   changed: false,
+                  itemId: networkItem.id,
+                  locationId: networkItem.locationId,
                 })),
               };
               items[localItem.id] = localItem;
@@ -109,7 +115,10 @@ function App(): JSX.Element {
           .then((snapshot) => {
             snapshot.forEach((doc) => {
               const connection = doc.data() as TNetworkConnection;
-              connections[connection.id] = connection;
+              connections[connection.id] = {
+                ...connection,
+                changed: false,
+              };
               items[connection.sourceId].connections.push({
                 id: connection.id,
                 isSource: true,

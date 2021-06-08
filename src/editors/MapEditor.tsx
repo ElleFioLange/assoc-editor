@@ -39,12 +39,15 @@ import useWindowDims from "../useWindowDims";
 import { RcFile } from "antd/lib/upload";
 import { mapEventHandler } from "google-maps-react";
 import indexOfId from "../indexOfId";
-import Item from "antd/lib/list/Item";
 
 const { Sider, Content } = Layout;
 const { Title } = Typography;
 const { TextArea } = Input;
 const { Dragger } = Upload;
+
+// TODO File types for content
+// TODO Make the content form better
+// TODO Ad stuff
 
 export default function GraphEditor({
   localMap,
@@ -228,18 +231,6 @@ export default function GraphEditor({
   }) {
     const [form] = Form.useForm();
 
-    // const formData =
-    //   typeof data === "string"
-    //     ? {
-    //         id: data,
-    //       }
-    //     : {
-    //         ...data,
-    //         partnerId: data.isSource
-    //           ? localMap.connections[data.id].targetId
-    //           : localMap.connections[data.id].sourceId,
-    //       };
-
     return (
       <Form
         form={form}
@@ -271,9 +262,9 @@ export default function GraphEditor({
                 ? Object.values(localMap.items)
                     .filter((item) => item.id !== data.ownerId)
                     .map((item) => ({
-                    label: `${item.name} - ${item.locationName} - ${item.id}`,
-                    value: item.id,
-                  }))
+                      label: `${item.name} - ${item.locationName} - ${item.id}`,
+                      value: item.id,
+                    }))
                 : undefined
             }
             filterOption={(input, option) => {
@@ -314,16 +305,16 @@ export default function GraphEditor({
     data,
     onFinish,
   }: {
-    data: string | TLocalContent;
+    data: { id: string; itemId: string; locationId: string } | TLocalContent;
     onFinish: () => void;
   }) {
     const [form] = Form.useForm();
 
     const [type, setType] = useState<ContentType>(
-      typeof data === "string" ? "image" : data.type
+      "name" in data ? data.type : "image"
     );
 
-    const path = `${filePath}/${typeof data === "string" ? data : data.id}`;
+    const path = `${filePath}/${data.locationId}/${data.itemId}/${data.id}`;
 
     function updateType(type: ContentType) {
       setType(type);
@@ -388,19 +379,19 @@ export default function GraphEditor({
       }
     };
 
+    const formData = "name" in data ? data : { ...data, changed: true };
+
     return (
       <Form
         form={form}
         layout="vertical"
         name="contentForm"
-        initialValues={
-          typeof data === "string" ? { id: data, changed: true } : data
-        }
+        initialValues={formData}
       >
         <Form.Item name="id" hidden />
         <Form.Item name="changed" hidden />
         <Space style={{ marginBottom: 16, display: "block" }}>
-          Id: {typeof data === "string" ? data : data.id}
+          Id: {data.id}
         </Space>
         <Select
           style={{ minWidth: 75, marginBottom: 16 }}
@@ -506,22 +497,29 @@ export default function GraphEditor({
         )}
         {type === "map" && (
           <>
+            <Form.Item
+              name="description"
+              label="Description"
+              rules={[{ required: true }]}
+            >
+              <TextArea rows={6} />
+            </Form.Item>
             <div style={{ height: 450, width: 450 }}>
               <CoordViewer
                 mapDim={450}
                 onClick={onMapClick}
                 onRightclick={onMapRightClick}
                 initialCenter={
-                  typeof data === "string"
-                    ? {
-                        lat: 35.10955714631318,
-                        lng: -106.61210092788741,
-                      }
-                    : data.type === "map"
-                    ? {
-                        lat: data.latitude,
-                        lng: data.longitude,
-                      }
+                  "name" in data
+                    ? data.type === "map"
+                      ? {
+                          lat: data.latitude,
+                          lng: data.longitude,
+                        }
+                      : {
+                          lat: 35.10955714631318,
+                          lng: -106.61210092788741,
+                        }
                     : {
                         lat: 35.10955714631318,
                         lng: -106.61210092788741,
@@ -537,13 +535,6 @@ export default function GraphEditor({
             </Form.Item>
             <Form.Item label="View Delta" name="viewDelta">
               <InputNumber />
-            </Form.Item>
-            <Form.Item
-              name="description"
-              label="Description"
-              rules={[{ required: true }]}
-            >
-              <TextArea rows={6} />
             </Form.Item>
           </>
         )}
@@ -574,12 +565,16 @@ export default function GraphEditor({
 
     const [connectionForm, setConnectionForm] =
       useState<{ id: string; ownerId: string } | TConnectionForm>();
-    const [contentForm, setContentForm] = useState<string | TLocalContent>();
+    const [contentForm, setContentForm] =
+      useState<
+        { id: string; itemId: string; locationId: string } | TContentForm
+      >();
 
     const formData =
       "description" in data
         ? {
             ...data,
+            changed: true,
             connections: data.connections.map((c) => {
               const connection = localMap.connections[c.id];
               return {
@@ -588,7 +583,7 @@ export default function GraphEditor({
               };
             }),
           }
-        : { ...data };
+        : { ...data, changed: true };
 
     return (
       <div style={{ margin: 8, overflow: "auto", paddingBottom: 200 }}>
@@ -657,6 +652,7 @@ export default function GraphEditor({
             <Form.Item name="id" hidden />
             <Form.Item name="locationId" hidden />
             <Form.Item name="locationName" hidden />
+            <Form.Item name="changed" hidden />
             <Space style={{ marginBottom: 16 }}>Id: {formData.id}</Space>
             <Form.Item name="name" label="Name" rules={[{ required: true }]}>
               <Input />
@@ -750,14 +746,6 @@ export default function GraphEditor({
                               <ClockCircleOutlined />
                             )
                           }
-                          onClick={() => {
-                            if ("connections" in data) {
-                              const newContent = [...content];
-                              newContent[index].changed =
-                                !newContent[index].changed;
-                              setFieldsValue({ content: newContent });
-                            }
-                          }}
                         />
                         <Button
                           style={{ marginLeft: 12 }}
@@ -803,7 +791,13 @@ export default function GraphEditor({
               type="dashed"
               block
               icon={<PlusCircleOutlined />}
-              onClick={() => setContentForm(uuid())}
+              onClick={() =>
+                setContentForm({
+                  id: uuid(),
+                  itemId: data.id,
+                  locationId: data.locationId,
+                })
+              }
             >
               Add Content
             </Button>
@@ -874,7 +868,8 @@ export default function GraphEditor({
     const [itemForm, setItemForm] =
       useState<{ id: string; locationId: string } | TItemForm>();
 
-    const formData = typeof data === "string" ? { id: data } : data;
+    const formData =
+      typeof data === "string" ? { id: data, changed: true } : data;
 
     return (
       <div style={{ margin: 8, overflow: "auto", paddingBottom: 200 }}>
@@ -933,6 +928,7 @@ export default function GraphEditor({
         >
           <Form name="locationForm" form={form} initialValues={formData}>
             <Form.Item name="id" hidden />
+            <Form.Item name="changed" hidden />
             <Space style={{ marginBottom: 16 }}>Id: {formData.id}</Space>
             <Form.Item label="Name" name="name" rules={[{ required: true }]}>
               <Input />
@@ -961,6 +957,16 @@ export default function GraphEditor({
                           style={{ marginLeft: 12 }}
                           icon={<EditOutlined />}
                           onClick={() => setItemForm(item)}
+                        />
+                        <Button
+                          style={{ marginLeft: 12 }}
+                          icon={
+                            items[index].changed ? (
+                              <ClockCircleFilled />
+                            ) : (
+                              <ClockCircleOutlined />
+                            )
+                          }
                         />
                         <Button
                           style={{ marginLeft: 12 }}

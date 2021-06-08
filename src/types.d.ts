@@ -27,6 +27,10 @@ type TNetworkVideo = {
   videoHeight: number;
 };
 
+type TNetworkAudio = {
+  
+}
+
 type TNetworkCoord = {
   type: "map";
   id: string;
@@ -72,20 +76,14 @@ type TNetworkLocation = {
 // ============== LOCAL MAP ===============
 
 type TLocalImage = {
-  changed: boolean;
   type: "image";
-  id: string;
-  name: string;
   ext: string;
   width: number;
   height: number;
 };
 
 type TLocalVideo = {
-  changed: boolean;
   type: "video";
-  id: string;
-  name: string;
   posterExt: string;
   posterWidth: number;
   posterHeight: number;
@@ -95,21 +93,27 @@ type TLocalVideo = {
 };
 
 type TLocalCoord = {
-  changed: boolean;
   type: "map";
-  id: string;
-  name: string;
   description: string;
   latitude: number;
   longitude: number;
   viewDelta: number;
 };
 
-type TLocalContent = TLocalImage | TLocalVideo | TLocalCoord;
+type TLocalContent = (TLocalImage | TLocalVideo | TLocalCoord) & {
+  changed: boolean;
+  name: string;
+  id: string;
+  itemId: string;
+  locationId: string;
+};
 
-type TLocalConnection = TNetworkConnection;
+type TLocalConnection = TNetworkConnection & {
+  changed: boolean;
+};
 
 type TLocalItem = {
+  changed: boolean;
   id: string;
   name: string;
   description: string;
@@ -122,6 +126,7 @@ type TLocalItem = {
 };
 
 type TLocalLocation = {
+  changed: boolean;
   id: string;
   name: string;
   description: string;
@@ -130,7 +135,50 @@ type TLocalLocation = {
 
 // ============== FORMS ===============
 
+type TImageForm = {
+  changed: boolean;
+  type: "image";
+  id: string;
+  name: string;
+  ext: string;
+  width: number;
+  height: number;
+};
+
+type TVideoForm = {
+  changed: boolean;
+  type: "video";
+  id: string;
+  name: string;
+  posterExt: string;
+  posterWidth: number;
+  posterHeight: number;
+  videoExt: string;
+  videoWidth: number;
+  videoHeight: number;
+};
+
+type TCoordForm = {
+  changed: boolean;
+  type: "map";
+  id: string;
+  name: string;
+  description: string;
+  latitude: number;
+  longitude: number;
+  viewDelta: number;
+};
+
+type TContentForm = (TImageForm | TVideoForm | TCoordForm) & {
+  changed: boolean;
+  name: string;
+  id: string;
+  itemId: string;
+  locationId: string;
+};
+
 type TConnectionForm = {
+  changed: boolean;
   id: string;
   key: string;
   preReqs?: string[];
@@ -141,6 +189,7 @@ type TConnectionForm = {
 };
 
 type TItemForm = {
+  changed: boolean;
   id: string;
   name: string;
   description: string;
@@ -148,11 +197,12 @@ type TItemForm = {
   locationId: string;
   locationName: string;
   connections: TConnectionForm[];
-  content: TLocalContent[];
+  content: TContentForm[];
   link?: string;
 };
 
 type TLocationForm = {
+  changed: boolean;
   id: string;
   name: string;
   description: string;
